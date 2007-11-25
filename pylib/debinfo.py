@@ -30,7 +30,10 @@ def _extract_control(path):
     control_tar_gz = ar.extract(path, "control.tar.gz")
     fh = StringIO(control_tar_gz)
     tar = tarfile.open("control.tar.gz", mode="r:gz", fileobj=fh)
-    return tar.extractfile("control").read()
+    try:
+        return tar.extractfile("./control").read()
+    except KeyError:
+        return tar.extractfile("control").read()
 
 def get_key(path):
     """calculate the debinfo key for a Debian binary package at <path>"""
