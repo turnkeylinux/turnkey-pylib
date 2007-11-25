@@ -16,6 +16,9 @@ install: build
 	dh_clean -k
 	python setup.py install -O2 --prefix $(prefix)
 
+	# delete sources / unoptimized modules
+	rm $$(find $(prefix) -type f |grep '\.pyc\?$$')
+
 binary-indep: build install
 
 binary-arch: build install
