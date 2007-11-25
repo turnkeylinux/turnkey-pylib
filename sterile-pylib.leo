@@ -3,7 +3,7 @@
 <leo_file>
 <leo_header file_format="2" tnodes="0" max_tnode_index="48" clone_windows="0"/>
 <globals body_outline_ratio="0.0996784565916">
-	<global_window_position top="0" left="469" height="933" width="800"/>
+	<global_window_position top="0" left="535" height="933" width="734"/>
 	<global_log_window_position top="0" left="0" height="0" width="0"/>
 </globals>
 <preferences/>
@@ -13,10 +13,11 @@
 <v t="zaril.20071001200718" a="E"><vh>development log</vh>
 <v t="zaril.20071001200718.2"><vh>research</vh></v>
 <v t="zaril.20071001195902.1" a="E"><vh>design</vh></v>
-<v t="zaril.20071125061538" a="E"><vh>implementation</vh>
-<v t="zaril.20071125061849" a="E"><vh>add modules</vh>
+<v t="zaril.20071125061538" a="ETV"><vh>implementation</vh>
+<v t="zaril.20071125061849"><vh>add modules</vh>
+<v t="zaril.20071125065736"><vh>paths.py</vh></v>
 <v t="zaril.20071125064338"><vh>stdtrap.py</vh></v>
-<v t="zaril.20071125064413" a="TV"><vh>git.py</vh></v>
+<v t="zaril.20071125064413"><vh>git.py</vh></v>
 </v>
 </v>
 </v>
@@ -118,6 +119,10 @@ example minimum setup.py
     setup(packages = [''],
           package_dir = {'': 'pylib'})</t>
 <t tx="zaril.20071125061538">__add__
+
+connagent modules?
+    fileevent
+    popen4?
 </t>
 <t tx="zaril.20071125061849">* TODO
 merge all versions of each module
@@ -135,14 +140,24 @@ commit
     removed stdtrap.py (sterile-pylib)
 
 * MODULES
+    paths
+    stdtrap
     git
-    fileevent
-    aufs
-    debinfo</t>
+
+    debinfo
+        ar
+        hashstore
+
+</t>
 <t tx="zaril.20071125064338">Sumo was the latest version
 removed from sumo, covin and deckdebuild
 </t>
 <t tx="zaril.20071125064413">covin
+pool
+sumo
+</t>
+<t tx="zaril.20071125065736">deckdebuild
+deck
 pool
 sumo
 </t>
