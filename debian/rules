@@ -10,7 +10,6 @@ build:
 	mkdir -p $(prefix)
 
 clean:
-	$(MAKE) clean
 	dh_clean
 
 install: build
