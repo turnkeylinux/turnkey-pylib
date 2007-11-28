@@ -6,6 +6,7 @@ import commands
 import os
 from os.path import *
 
+import pwd
 import md5
 import tarfile
 from cStringIO import StringIO
@@ -17,8 +18,9 @@ class Error(Exception):
     pass
 
 def _init_debinfo_cache():
+    home_dir = pwd.getpwuid(os.getuid()).pw_dir
     debinfo_dir = os.environ.get("DEBINFO_DIR",
-                                 join(os.environ.get("HOME"), ".debinfo"))
+                                 join(home_dir, ".debinfo"))
     if not exists(debinfo_dir):
         os.makedirs(debinfo_dir)
 
