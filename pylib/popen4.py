@@ -64,7 +64,14 @@ class Popen4:
     sts = -1
 
     def __init__(self, cmd, bufsize=0, pty=False, runas=None, setpgrp=False):
-        """'runas' has to be a username"""
+        """'runas' can be uid or username"""
+        try:
+            if runas is not None:
+                uid = int(runas)
+                runas = pwd.getpwuid(uid)[0]
+        except ValueError:
+            pass
+
         self.childerr = None
         if pty:
             self._init_pty(cmd, bufsize, runas, setpgrp)
