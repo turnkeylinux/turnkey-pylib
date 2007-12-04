@@ -1,11 +1,16 @@
 """This module contains high-level convenience functions for safe
 command execution that properly escape arguments and raise an
-exception on error"""
+ExecError exception on error"""
 import os
 import sys
 import commands
 
 class ExecError(Exception):
+    """Accessible attributes:
+    command	executed command
+    exitcode	non-zero exitcode returned by command
+    output	error output returned by command
+    """
     def __init__(self, command, exitcode, output=None):
         Exception.__init__(self, command, exitcode, output)
 
