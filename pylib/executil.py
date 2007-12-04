@@ -6,7 +6,19 @@ import sys
 import commands
 
 class ExecError(Exception):
-    pass
+    def __init__(self, command, exitcode, output=None):
+        Exception.__init__(self, command, exitcode, output)
+
+        self.command = command
+        self.exitcode = exitcode
+        self.output = output
+
+    def __str__(self):
+        str = "non-zero exitcode (%d) for command: %s" % (self.exitcode,
+                                                          self.command)
+        if self.output:
+            str += "\n" + self.output
+        return str
 
 def _fmt_command(command, args):
     return command + " ".join([commands.mkarg(arg) for arg in args])
@@ -22,7 +34,7 @@ def system(command, *args):
     error = os.system(command)
     if error:
         exitcode = os.WEXITSTATUS(error)
-        raise ExecError("system command returned non-zero exitcode", command, exitcode)
+        raise ExecError(command, exitcode)
 
 def getoutput(command, *args):
     """Executes <command> with <*args> -> output
@@ -32,7 +44,7 @@ def getoutput(command, *args):
     error, output = commands.getstatusoutput(command)
     if error:
         exitcode = os.WEXITSTATUS(error)
-        raise ExecError("getoutput command returned non-zero exitcode", command, exitcode, output)
+        raise ExecError(command, exitcode, output)
 
     return output
 
