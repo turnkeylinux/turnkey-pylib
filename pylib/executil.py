@@ -5,6 +5,8 @@ import os
 import sys
 import commands
 
+mkarg = commands.mkarg
+
 class ExecError(Exception):
     """Accessible attributes:
     command	executed command
@@ -26,7 +28,7 @@ class ExecError(Exception):
         return str
 
 def _fmt_command(command, args):
-    return command + " ".join([commands.mkarg(arg) for arg in args])
+    return command + " ".join([mkarg(arg) for arg in args])
 
 def system(command, *args):
     """Executes <command> with <*args> -> None
@@ -52,4 +54,3 @@ def getoutput(command, *args):
         raise ExecError(command, exitcode, output)
 
     return output
-
