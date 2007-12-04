@@ -321,6 +321,11 @@ class Git(object):
             return None
 
     @setup
+    def show(self, *args):
+        """git-show *args -> output"""
+        return self._getoutput("git-show", *args)
+
+    @setup
     def commit_tree(self, id, log, parents=None):
         """git-commit-tree <id> [ -p <parents> ] < <log>
         Return id of object committed"""
