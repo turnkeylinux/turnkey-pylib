@@ -3,9 +3,11 @@ import datetime
 class DateError(Exception):
     pass
     
-def parsedate(str):
-    vals = str.split("/")
-
+def parsedate(datestr):
+    """Parse <datestr> > datetime.date() instance
+    <datestr> := YY[YY][/MM[/DD]]
+    """
+    vals = datestr.split("/")
     try:
         if len(vals) == 3:
             year, month, day = map(int, vals)
@@ -19,7 +21,7 @@ def parsedate(str):
         else:
             raise DateError()
     except (ValueError, DateError):
-        raise DateError("illegal date (%s)" % str)
+        raise DateError("illegal date (%s)" % datestr)
 
     if year < 100:
         if year > 70:
