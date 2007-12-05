@@ -2,7 +2,11 @@ import datetime
 
 class DateError(Exception):
     pass
-    
+
+class Date(datetime.date):
+    def __str__(self):
+        return "%04d/%02d/%02d" % (self.year, self.month, self.day)
+        
 def parsedate(datestr):
     """Parse <datestr> > datetime.date() instance
     <datestr> := YY[YY][/MM[/DD]]
@@ -29,4 +33,4 @@ def parsedate(datestr):
         else:
             year += 2000
         
-    return datetime.date(year, month, day)
+    return Date(year, month, day)
