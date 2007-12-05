@@ -19,8 +19,8 @@ def parsedate(datestr):
             month = 1
             day = 1
         else:
-            raise DateError()
-    except (ValueError, DateError):
+            raise ValueError()
+    except ValueError:
         raise DateError("illegal date (%s)" % datestr)
 
     if year < 100:
