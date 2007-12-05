@@ -5,8 +5,7 @@ class DateError(Exception):
     pass
 
 def parsedate(datestr):
-    """Universal date parser -> return a datetime.date() instance
-    Supported date formats:
+    """Supported date formats:
        N days|months|weeks|years ago
 
        DD/MM[/YY[YY]]
@@ -76,7 +75,8 @@ def parsedate(datestr):
             
         return datetime.date(year, month, day)
 
-    raise DateError("illegal date (%s)" % datestr)
+    raise DateError("illegal date (%s)" % datestr +
+                    "\n" + parsedate.__doc__)
 
 
         
