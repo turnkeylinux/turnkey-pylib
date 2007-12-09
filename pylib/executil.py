@@ -27,7 +27,7 @@ class ExecError(Exception):
             str += "\n" + self.output
         return str
 
-def _fmt_command(command, args):
+def fmt_command(command, *args):
     return command + " ".join([mkarg(arg) for arg in args])
 
 def system(command, *args):
@@ -37,7 +37,7 @@ def system(command, *args):
     sys.stdout.flush()
     sys.stderr.flush()
 
-    command = _fmt_command(command, args)
+    command = fmt_command(command, *args)
     error = os.system(command)
     if error:
         exitcode = os.WEXITSTATUS(error)
@@ -47,7 +47,7 @@ def getoutput(command, *args):
     """Executes <command> with <*args> -> output
     If command returns non-zero exitcode raises ExecError"""
     
-    command = _fmt_command(command, args)
+    command = fmt_command(command, *args)
     error, output = commands.getstatusoutput(command)
     if error:
         exitcode = os.WEXITSTATUS(error)
