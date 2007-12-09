@@ -45,7 +45,6 @@ def set_blocking(fd, block):
         arg =~ arg
     fcntl.fcntl(fd, fcntl.F_SETFL, arg)
 
-
 class Command:
     """Convenience module for executing a command
     Usage:

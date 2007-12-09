@@ -4,6 +4,8 @@ from os.path import *
 import subprocess
 import commands
 
+from executil import *
+
 def is_git_repository(path):
     """Return True if path is a git repository"""
     
@@ -97,6 +99,7 @@ class Git(object):
         command = "git --git-dir %s init" % commands.mkarg(init_path)
         if not verbose:
             command += " > /dev/null"
+            
         os.system(command)
 
         return cls(path)
@@ -129,15 +132,10 @@ class Git(object):
 
     @classmethod
     def _system(cls, command, *args):
-        sys.stdout.flush()
-        sys.stderr.flush()
-
-        command = command + " ".join([commands.mkarg(arg) for arg in args])
-        err = os.system(command)
-        if err:
-            raise cls.Error("command failed: " + command,
-                            os.WEXITSTATUS(err))
-
+        try:
+            system(command, *args)
+        except ExecError, e:
+            raise cls.Error(e)
     @setup
     def read_tree(self, *opts):
         """git-read-tree *opts"""
@@ -251,14 +249,14 @@ class Git(object):
         try:
             self._system(command, *args)
         except self.Error, e:
-            return e[1]
+            return e[0].exitcode
 
     @classmethod
     def _getoutput(cls, command, *args):
-        command = command + " ".join([commands.mkarg(arg) for arg in args])
-        status, output = commands.getstatusoutput(command)
-        if status != 0:
-            raise cls.Error("command `%s' failed: %s" % (command, output))
+        try:
+            output = getoutput(command, *args)
+        except ExecError, e:
+            raise cls.Error(e)
         return output
 
     @setup
@@ -319,6 +317,11 @@ class Git(object):
             return self._getoutput("git-show-ref", ref).split(" ")[1]
         except self.Error:
             return None
+
+    @setup
+    def show(self, *args):
+        """git-show *args -> output"""
+        return self._getoutput("git-show", *args)
 
     @setup
     def commit_tree(self, id, log, parents=None):
