@@ -25,18 +25,22 @@ class _PagedStdout:
         return pager
     pager = property(pager)
 
+    def flush(self):
+        if self.pager:
+            self.pager.flush()
+        else:
+            sys.stdout.flush()
+        
     def write(self, text):
         if self.pager:
             try:
                 self.pager.write(text)
-                self.pager.flush()
                 
             except IOError, e:
                 if e[0] != errno.EPIPE:
                     raise
         else:
             sys.stdout.write(text)
-            sys.stdout.flush()
 
 stdout = _PagedStdout()
 
