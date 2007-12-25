@@ -33,11 +33,32 @@ import errno
 import select
 from StringIO import StringIO
 
-import time
+import signal
 
 class Error(Exception):
     pass
 
+class SignalEvent:
+    SIG = signal.SIGUSR1
+    
+    @classmethod
+    def send(cls, pid):
+        """send signal event to pid"""
+        os.kill(pid, cls.SIG)
+
+    def _sighandler(self, sig, frame):
+        self.value = True
+
+    def __init__(self):
+        self.value = False
+        signal.signal(self.SIG, self._sighandler)
+        
+    def isSet(self):
+        return self.value
+
+    def clear(self):
+        self.value = False
+        
 class PatchedReader:
     """Wrapper around the reader we get back from fdopen that fixes
     the exception raised when we try to read from a pipe that hasn't been
@@ -67,6 +88,13 @@ class Pipe:
         self.r = os.fdopen(r, "r", 0)
         self.w = os.fdopen(w, "w", 0)
 
+def set_blocking(fd, block):
+    import fcntl
+    arg = os.O_NONBLOCK
+    if block:
+        arg =~ arg
+    fcntl.fcntl(fd, fcntl.F_SETFL, arg)
+
 class StdTrap:
     class Splicer:
         @staticmethod
@@ -91,9 +119,11 @@ class StdTrap:
             spliced_fd_reader = os.fdopen(r, "r", 0)
             
             splicer_pipe = Pipe()
-            
+            signal_closed = SignalEvent()
+
             splicer_pid = os.fork()
             if splicer_pid:
+                del signal_closed
                 splicer_pipe.w.close()
                 spliced_fd_reader.close()
 
@@ -104,7 +134,10 @@ class StdTrap:
 
                 # we don't need this copy of spliced_fd
                 # keeping it open will prevent it from closing
-                os.close(spliced_fd) 
+                os.close(spliced_fd)
+
+                set_blocking(spliced_fd_reader.fileno(), False)
+                set_blocking(splicer_pipe.w.fileno(), False)
                 
                 def os_write_all(fd, data):
                     while data:
@@ -113,27 +146,56 @@ class StdTrap:
                             raise Error("os.write error")
                         data = data[len:]
 
+
+                poll = select.poll()
+                poll.register(spliced_fd_reader, select.POLLIN | select.POLLHUP)
+                
+                buf = ""
+                
+                closed = False
+                
                 while True:
                     try:
-                        data = spliced_fd_reader.read(4096)
-                    except IOError:
+                        events = poll.poll()
+                    except select.error:
+                        continue
+
+                    for fd, mask in events:
+                        if fd == spliced_fd_reader.fileno():
+                            if mask & select.POLLIN:
+
+                                data = spliced_fd_reader.read()
+                                
+                                buf += data
+                                poll.register(splicer_pipe.w)
+                                
+                                if transparent:
+                                    # if our dupfd file descriptor has been closed
+                                    # redirect output to the originally trapped fd
+                                    try:
+                                        os_write_all(orig_fd_dup, data)
+                                    except OSError, e:
+                                        if e[0] == errno.EBADF:
+                                            os_write_all(spliced_fd, data)
+                                        else:
+                                            raise
+
+                            if mask & select.POLLHUP:
+                                closed = True
+                                poll.unregister(fd)
+                                
+                        elif fd == splicer_pipe.w.fileno():
+                            if mask & select.POLLOUT:
+                                written = os.write(splicer_pipe.w.fileno(), buf)
+                                buf = buf[written:]
+                                if not buf:
+                                    poll.unregister(splicer_pipe.w)
+
+                    if not closed:
+                        closed = signal_closed.isSet()
+
+                    if closed and not buf:
                         break
-
-                    if not data:
-                        break
-
-                    splicer_pipe.w.write(data)
-
-                    if transparent:
-                        # if our dupfd file descriptor has been closed
-                        # redirect output to the originally trapped fd
-                        try:
-                            os_write_all(orig_fd_dup, data)
-                        except OSError, e:
-                            if e[0] == errno.EBADF:
-                                os_write_all(spliced_fd, data)
-                            else:
-                                raise
 
                 sys.exit(0)
           
@@ -149,6 +211,7 @@ class StdTrap:
             # 1) it closes spliced_fd - signals our splicer process to stop reading
             # 2) it overwrites spliced_fd with a dup of the unspliced original fd
             os.dup2(self.orig_fd_dup, self.spliced_fd)
+            SignalEvent.send(self.splicer_pid)
             
             os.close(self.orig_fd_dup)
 
@@ -287,18 +350,16 @@ def test(transparent=False):
 
 
 def test2():
-    trap = StdTrap(stdout=True, stderr=False)
-    
+    trap = StdTrap(stdout=True, stderr=True)
+
     try:
-        print "hello world"
-        
+        print "A" * (2 ** 17)
+        print >> sys.stderr, "B" * (2 ** 18)
     finally:
         trap.close()
 
-    output = trap.stdout.read()
-    print "===="
-    print output
-    print "===="
+    assert len(trap.stdout.read()) == (2**17) + 1
+    assert len(trap.stderr.read()) == (2**18) + 1
 
 if __name__ == '__main__':
     test2()

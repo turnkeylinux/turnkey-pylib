@@ -202,6 +202,7 @@ def test2():
 * GOTCHA: I can't debug by writing to stdout
 WORKAROUND: write to a log file...
 
+ls
 class Log:
     def __init__(self, path):
         if os.path.exists(path):
@@ -223,6 +224,22 @@ how do I set non blocking mode?
 
 IDEAS
     run the splicer in a separate process
+
+splicer logic:
+    select the spliced_fd_reader and the splicer_pipe writer
+    when I can read from spliced_fd_reader, read into a buffer
+    when I have something to write, and I can write into splicer_pipe, then write
+    if spliced_fd 
+    
+BUG: if stderr + stdout, stdtrap jams
+    hypo: the splicer_read fds are being replicated into the child
+        so it never gets the hup signal
+
+    IDEAS: 
+        keep track of fds
+            what if some other piece of code forks?
+        signal to the child to close shop
+
 </t>
 </tnodes>
 </leo_file>
