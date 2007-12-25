@@ -117,18 +117,26 @@ class StdTrap:
             os.close(w)
             
             spliced_fd_reader = os.fdopen(r, "r", 0)
-            
             splicer_pipe = Pipe()
-            signal_closed = SignalEvent()
 
+            # the child process uses this to signal the parent to continue
+            # the parent uses this to signal the child to close
+            signal_event = SignalEvent()
+            
             splicer_pid = os.fork()
             if splicer_pid:
-                del signal_closed
+                signal_continue = signal_event
+                
                 splicer_pipe.w.close()
                 spliced_fd_reader.close()
 
+                while not signal_continue.isSet():
+                    pass
+
                 return splicer_pid, splicer_pipe.r, orig_fd_dup
             else:
+                signal_closed = signal_event
+                
                 # child splicer
                 splicer_pipe.r.close()
 
@@ -153,8 +161,15 @@ class StdTrap:
                 buf = ""
                 
                 closed = False
+                SignalEvent.send(os.getppid())
                 
                 while True:
+                    if not closed:
+                        closed = signal_closed.isSet()
+
+                    if closed and not buf:
+                        break
+
                     try:
                         events = poll.poll()
                     except select.error:
@@ -190,12 +205,6 @@ class StdTrap:
                                 buf = buf[written:]
                                 if not buf:
                                     poll.unregister(splicer_pipe.w)
-
-                    if not closed:
-                        closed = signal_closed.isSet()
-
-                    if closed and not buf:
-                        break
 
                 sys.exit(0)
           
@@ -383,11 +392,11 @@ def test4():
     print 'nothing in stderr: """%s"""' % s.stderr.read()
 
 if __name__ == '__main__':
-    test4()
-    
-if __name__ == '__main__X':
-     test(False)
-     print
-     print "=== TRANSPARENT MODE ==="
-     print
-     test(True)
+    test(False)
+    print
+    print "=== TRANSPARENT MODE ==="
+    print
+    test(True)
+    test2()
+    test3()
+     

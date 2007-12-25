@@ -19,7 +19,9 @@
 <v t="zaril.20071125064338"><vh>stdtrap.py</vh></v>
 <v t="zaril.20071125064413"><vh>git.py</vh></v>
 </v>
-<v t="zaril.20071225021219" a="ETV"><vh>bug: stdtrap chokes on large outputs</vh></v>
+<v t="zaril.20071225021219" a="ETV"><vh>bug: stdtrap chokes on large outputs</vh>
+<v t="zaril.20071225091309"><vh>bug: empty output still deadlocks sometimes</vh></v>
+</v>
 <v t="zaril.20071224233211"><vh>port wrapper.py</vh></v>
 </v>
 </v>
@@ -202,7 +204,6 @@ def test2():
 * GOTCHA: I can't debug by writing to stdout
 WORKAROUND: write to a log file...
 
-ls
 class Log:
     def __init__(self, path):
         if os.path.exists(path):
@@ -240,6 +241,33 @@ BUG: if stderr + stdout, stdtrap jams
             what if some other piece of code forks?
         signal to the child to close shop
 
+* TODO:
+refactor _splice
+    don't need to save transparent in self
+
+</t>
+<t tx="zaril.20071225091309">def test4():
+    s = StdTrap(transparent=True)
+    s.close()
+    print 'nothing in stdout: """%s"""' % s.stdout.read()
+    print 'nothing in stderr: """%s"""' % s.stderr.read()
+
+hypo: some kind of race condition
+
+TEST:
+
+while true; do
+    python stdtrap.py # running test4
+done
+
+
+E: insert a 1/10 second delay between StdTrap and s.close()
+R: no deadlocks
+
+IDEA: use an opposite signalling mechanism to block until the child starts?
+
+put the entire child splicer in a try clause?
+    IOError (interrupted by system call)
 </t>
 </tnodes>
 </leo_file>
