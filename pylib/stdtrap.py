@@ -145,7 +145,7 @@ class StdTrap:
                         if len < 0:
                             raise Error("os.write error")
                         data = data[len:]
-
+                        
 
                 poll = select.poll()
                 poll.register(spliced_fd_reader, select.POLLIN | select.POLLHUP)
@@ -158,7 +158,7 @@ class StdTrap:
                     try:
                         events = poll.poll()
                     except select.error:
-                        continue
+                        events = ()
 
                     for fd, mask in events:
                         if fd == spliced_fd_reader.fileno():
@@ -296,6 +296,7 @@ def test(transparent=False):
         os.system("echo echo stdout")
         os.system("echo echo stderr 1>&2")
 
+    print "--- 1:"
     trap1 = UnitedStdTrap(transparent=transparent)
     trap2 = UnitedStdTrap(transparent=transparent)
     print "hello world"
@@ -304,8 +305,8 @@ def test(transparent=False):
     trap1.close(),
     print "trap1: " + trap1.std.read(),
 
-    print "---"
-
+    print "--- 2:"
+    
     s = UnitedStdTrap(transparent=transparent)
     print "printing to united stdout..."
     print >> sys.stderr, "printing to united stderr..."
@@ -315,8 +316,7 @@ def test(transparent=False):
     print 'trapped united stdout and stderr: """%s"""' % s.std.read()
     print >> sys.stderr, "printing to stderr"
 
-    print "---"
-
+    print "--- 3:"
     s = None
     s = UnitedStdTrap(transparent=transparent)
     print "printing to united stdout..."
@@ -327,14 +327,14 @@ def test(transparent=False):
     print 'trapped united stdout and stderr: """%s"""' % s.std.read()
     print >> sys.stderr, "printing to stderr"
 
-    print "---"
+    print "--- 4:"
     
     s = StdTrap(transparent=transparent)
     s.close()
     print 'nothing in stdout: """%s"""' % s.stdout.read()
     print 'nothing in stderr: """%s"""' % s.stderr.read()
 
-    print "---"
+    print "--- 5:"
 
     s = StdTrap(transparent=transparent)
     print "printing to stdout..."
@@ -375,8 +375,15 @@ def test3():
 
     print len(trap.stdout.read())
 
+def test4():
+    import time
+    s = StdTrap(transparent=True)
+    s.close()
+    print 'nothing in stdout: """%s"""' % s.stdout.read()
+    print 'nothing in stderr: """%s"""' % s.stderr.read()
+
 if __name__ == '__main__':
-    test3()
+    test4()
     
 if __name__ == '__main__X':
      test(False)
