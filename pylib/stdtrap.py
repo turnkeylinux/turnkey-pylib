@@ -5,8 +5,6 @@ Warning: if you aren't careful, exceptions raised after trapping stdout/stderr
 will cause your program to exit silently.
 
 StdTrap usage:
-
-
     trap = StdTrap()
     try:
         expression
@@ -70,102 +68,121 @@ class Pipe:
         self.w = os.fdopen(w, "w", 0)
 
 class StdTrap:
+    class Splicer:
+        @staticmethod
+        def _splice(spliced_fd, usepty, transparent):
+            """splice into spliced_fd -> (splicer_pid, splicer_reader, orig_fd_dup)"""
+               
+            # duplicate the fd we want to trap for safe keeping
+            orig_fd_dup = os.dup(spliced_fd)
+
+            # create a bi-directional pipe/pty
+            # data written to w can be read from r
+            if usepty:
+                r, w = os.openpty()
+            else:
+                r, w = os.pipe()
+
+            # splice into spliced_fd by overwriting it
+            # with the newly created `w` which we can read from with `r`
+            os.dup2(w, spliced_fd)
+            os.close(w)
+            
+            spliced_fd_reader = os.fdopen(r, "r", 0)
+            
+            splicer_pipe = Pipe()
+            
+            splicer_pid = os.fork()
+            if splicer_pid:
+                splicer_pipe.w.close()
+                spliced_fd_reader.close()
+
+                return splicer_pid, splicer_pipe.r, orig_fd_dup
+            else:
+                # child splicer
+                splicer_pipe.r.close()
+
+                # we don't need this copy of spliced_fd
+                # keeping it open will prevent it from closing
+                os.close(spliced_fd) 
+                
+                def os_write_all(fd, data):
+                    while data:
+                        len = os.write(fd, data)
+                        if len < 0:
+                            raise Error("os.write error")
+                        data = data[len:]
+
+                while True:
+                    try:
+                        data = spliced_fd_reader.read(4096)
+                    except IOError:
+                        break
+
+                    if not data:
+                        break
+
+                    splicer_pipe.w.write(data)
+
+                    if transparent:
+                        # if our dupfd file descriptor has been closed
+                        # redirect output to the originally trapped fd
+                        try:
+                            os_write_all(orig_fd_dup, data)
+                        except OSError, e:
+                            if e[0] == errno.EBADF:
+                                os_write_all(spliced_fd, data)
+                            else:
+                                raise
+
+                sys.exit(0)
+          
+        def __init__(self, spliced_fd, usepty=False, transparent=False):
+            vals = self._splice(spliced_fd, usepty, transparent)
+            self.splicer_pid, self.splicer_reader, self.orig_fd_dup = vals
+
+            self.spliced_fd = spliced_fd
+
+        def close(self):
+            """closes the splice -> captured output"""
+            # dupping orig_fd_dup -> spliced_fd does two things:
+            # 1) it closes spliced_fd - signals our splicer process to stop reading
+            # 2) it overwrites spliced_fd with a dup of the unspliced original fd
+            os.dup2(self.orig_fd_dup, self.spliced_fd)
+            
+            os.close(self.orig_fd_dup)
+
+            captured = self.splicer_reader.read()
+            os.waitpid(self.splicer_pid, 0)
+
+            return captured
+
     def __init__(self, stdout=True, stderr=True, usepty=False, transparent=False):
         self.usepty = pty
         self.transparent = transparent
-        
-        self.stdout = None
-        self.stderr = None
 
+        self.stdout_splice = None
+        self.stderr_splice = None
+        
         if stdout:
             sys.stdout.flush()
-            self.stdout_pid, self.stdout, self.stdout_dupfd = self.trapfd(sys.stdout.fileno())
-            self.trap_stdout = True
-        else:
-            self.trap_stdout = False
+            self.stdout_splice = StdTrap.Splicer(sys.stdout.fileno(), usepty, transparent)
 
         if stderr:
             sys.stderr.flush()
-            self.stderr_pid, self.stderr, self.stderr_dupfd = self.trapfd(sys.stderr.fileno())
-            self.trap_stderr = True
-        else:
-            self.trap_stderr = False
-
-    def trapfd(self, orig_fd):
-        # duplicate the fd we want to trap for safe keeping
-        dup_fd = os.dup(orig_fd)
-
-        # create a bi-directional pipe/pty
-        # data written to w can be read from r
-        if self.usepty:
-            r, w = os.openpty()
-        else:
-            r, w = os.pipe()
-
-        # swap w in place of the trapped fd
-        # (this overwrites fd with w)
-        os.dup2(w, orig_fd)
-        os.close(w)
-
-        splice_reader = os.fdopen(r, "r", 0)
-
-        captured = Pipe()
-        child_pid = os.fork()
-        if child_pid:
-            captured.w.close()
-            splice_reader.close()
-
-            return child_pid, captured.r, dup_fd
-        else:
-            # child
-            captured.r.close()
-            os.close(orig_fd)
+            self.stderr_splice = StdTrap.Splicer(sys.stderr.fileno(), usepty, transparent)
             
-            def os_write_all(fd, data):
-                while data:
-                    len = os.write(fd, data)
-                    if len < 0:
-                        raise Error("os.write error")
-                    data = data[len:]
-
-            while True:
-                try:
-                    data = splice_reader.read(4096)
-                except IOError:
-                    break
-
-                if not data:
-                    break
-
-                captured.w.write(data)
-
-                if self.transparent:
-                    # if our dupfd file descriptor has been closed
-                    # redirect output to the originally trapped fd
-                    try:
-                        os_write_all(dup_fd, data)
-                    except OSError, e:
-                        if e[0] == errno.EBADF:
-                            os_write_all(orig_fd, data)
-                        else:
-                            raise
-
-            sys.exit(0)
-
-    def restorefd(self, fd, dupfd):
-        os.dup2(dupfd, fd)
-        os.close(dupfd)
+        self.stdout = None
+        self.stderr = None
 
     def close(self):
-        if self.trap_stdout:
+        if self.stdout_splice:
             sys.stdout.flush()
-            self.restorefd(sys.stdout.fileno(), self.stdout_dupfd)
-            os.waitpid(self.stdout_pid, 0)
+            self.stdout = StringIO(self.stdout_splice.close())
 
-        if self.trap_stderr:
+        if self.stderr_splice:
             sys.stderr.flush()
-            self.restorefd(sys.stderr.fileno(), self.stderr_dupfd)
-            os.waitpid(self.stderr_pid, 0)
+            self.stderr = StringIO(self.stderr_splice.close())
 
 class UnitedStdTrap(StdTrap):
     def __init__(self, usepty=False, transparent=False):
@@ -270,16 +287,15 @@ def test(transparent=False):
 
 
 def test2():
-    trap = StdTrap(stdout=False, stderr=True)
+    trap = StdTrap(stdout=True, stderr=False)
     
     try:
-        for i in range(5):
-            print "A" * 1024
+        print "hello world"
         
     finally:
         trap.close()
 
-    output = trap.stderr.read()
+    output = trap.stdout.read()
     print "===="
     print output
     print "===="
