@@ -35,7 +35,6 @@ import errno
 import select
 from StringIO import StringIO
 
-import thread
 import time
 
 class Error(Exception):
@@ -63,28 +62,34 @@ class PatchedReader:
         
     def __getattr__(self, name):
         return getattr(self.reader, name)
-    
+
+class Pipe:
+    def __init__(self):
+        r, w = os.pipe()
+        self.r = os.fdopen(r, "r", 0)
+        self.w = os.fdopen(w, "w", 0)
+
 class StdTrap:
     def __init__(self, stdout=True, stderr=True, usepty=False, transparent=False):
         self.usepty = pty
         self.transparent = transparent
         
+        self.stdout = None
+        self.stderr = None
+
         if stdout:
             sys.stdout.flush()
-            self.stdout_lock, self.stdout_buf, self.stdout_dupfd = self.trapfd(sys.stdout.fileno())
+            self.stdout_pid, self.stdout, self.stdout_dupfd = self.trapfd(sys.stdout.fileno())
             self.trap_stdout = True
         else:
             self.trap_stdout = False
 
         if stderr:
             sys.stderr.flush()
-            self.stderr_lock, self.stderr_buf, self.stderr_dupfd = self.trapfd(sys.stderr.fileno())
+            self.stderr_pid, self.stderr, self.stderr_dupfd = self.trapfd(sys.stderr.fileno())
             self.trap_stderr = True
         else:
             self.trap_stderr = False
-
-        self.stdout = None
-        self.stderr = None
 
     def trapfd(self, orig_fd):
         # duplicate the fd we want to trap for safe keeping
@@ -102,12 +107,20 @@ class StdTrap:
         os.dup2(w, orig_fd)
         os.close(w)
 
-        buf = StringIO()
+        splice_reader = os.fdopen(r, "r", 0)
 
-        lock = thread.allocate_lock()
-        lock.acquire()
-        
-        def splice():
+        captured = Pipe()
+        child_pid = os.fork()
+        if child_pid:
+            captured.w.close()
+            splice_reader.close()
+
+            return child_pid, captured.r, dup_fd
+        else:
+            # child
+            captured.r.close()
+            os.close(orig_fd)
+            
             def os_write_all(fd, data):
                 while data:
                     len = os.write(fd, data)
@@ -115,42 +128,29 @@ class StdTrap:
                         raise Error("os.write error")
                     data = data[len:]
 
-            p = select.poll()
-            p.register(r, select.POLLIN | select.POLLHUP)
-
             while True:
                 try:
-                    events = p.poll()
-                except select.error:
-                    continue
-
-                if not events:
-                    continue
-
-                mask = events[0][1]
-                if mask & select.POLLIN:
-                    data = os.read(r, 4096)
-                    buf.write(data)
-
-                    if self.transparent:
-                        # if our dupfd file descriptor has been closed
-                        # redirect output to the originally trapped fd
-                        try:
-                            os_write_all(dup_fd, data)
-                        except OSError, e:
-                            if e[0] == errno.EBADF:
-                                os_write_all(orig_fd, data)
-                            else:
-                                raise
-
-                elif mask & select.POLLHUP:
+                    data = splice_reader.read(4096)
+                except IOError:
                     break
 
-            os.close(r)
-            lock.release()
-            
-        thread.start_new_thread(splice, ())
-        return lock, buf, dup_fd
+                if not data:
+                    break
+
+                captured.w.write(data)
+
+                if self.transparent:
+                    # if our dupfd file descriptor has been closed
+                    # redirect output to the originally trapped fd
+                    try:
+                        os_write_all(dup_fd, data)
+                    except OSError, e:
+                        if e[0] == errno.EBADF:
+                            os_write_all(orig_fd, data)
+                        else:
+                            raise
+
+            sys.exit(0)
 
     def restorefd(self, fd, dupfd):
         os.dup2(dupfd, fd)
@@ -160,14 +160,12 @@ class StdTrap:
         if self.trap_stdout:
             sys.stdout.flush()
             self.restorefd(sys.stdout.fileno(), self.stdout_dupfd)
-            self.stdout_lock.acquire()
-            self.stdout = StringIO(self.stdout_buf.getvalue())
+            os.waitpid(self.stdout_pid, 0)
 
         if self.trap_stderr:
             sys.stderr.flush()
             self.restorefd(sys.stderr.fileno(), self.stderr_dupfd)
-            self.stderr_lock.acquire()
-            self.stderr = StringIO(self.stderr_buf.getvalue())
+            os.waitpid(self.stderr_pid, 0)
 
 class UnitedStdTrap(StdTrap):
     def __init__(self, usepty=False, transparent=False):
@@ -175,14 +173,15 @@ class UnitedStdTrap(StdTrap):
         self.transparent = transparent
         
         sys.stdout.flush()
-        self.stdout_lock, self.stdout_buf, self.stdout_dupfd = self.trapfd(sys.stdout.fileno())
+        self.stdout_pid, self.stdout, self.stdout_dupfd = self.trapfd(sys.stdout.fileno())
 
         sys.stderr.flush()
         self.stderr_dupfd = os.dup(sys.stderr.fileno())
         os.dup2(sys.stdout.fileno(), sys.stderr.fileno())
 
         self.stderr_orig = sys.stderr
-        self.std = self.stdout = self.stderr = None
+
+        self.std = self.stderr = self.stdout
 
     def close(self):
         sys.stdout.flush()
@@ -191,8 +190,7 @@ class UnitedStdTrap(StdTrap):
         sys.stderr.flush()
         self.restorefd(sys.stderr.fileno(), self.stderr_dupfd)
 
-        self.stdout_lock.acquire()
-        self.std = self.stdout = StringIO(self.stdout_buf.getvalue())
+        os.waitpid(self.stdout_pid, 0)
 
 def silence(callback, args=()):
     """convenience function - traps stdout and stderr for callback.
@@ -271,7 +269,25 @@ def test(transparent=False):
     print >> sys.stderr, 'trapped stderr: """%s"""' % s.stderr.read()
 
 
+def test2():
+    trap = StdTrap(stdout=False, stderr=True)
+    
+    try:
+        for i in range(5):
+            print "A" * 1024
+        
+    finally:
+        trap.close()
+
+    output = trap.stderr.read()
+    print "===="
+    print output
+    print "===="
+
 if __name__ == '__main__':
+    test2()
+    
+if __name__ == '__main__X':
      test(False)
      print
      print "=== TRANSPARENT MODE ==="

@@ -2,8 +2,8 @@
 <?xml-stylesheet ekr_test?>
 <leo_file>
 <leo_header file_format="2" tnodes="0" max_tnode_index="48" clone_windows="0"/>
-<globals body_outline_ratio="0.0996784565916">
-	<global_window_position top="0" left="535" height="933" width="734"/>
+<globals body_outline_ratio="0.200428724544">
+	<global_window_position top="0" left="537" height="933" width="734"/>
 	<global_log_window_position top="0" left="0" height="0" width="0"/>
 </globals>
 <preferences/>
@@ -13,12 +13,14 @@
 <v t="zaril.20071001200718" a="E"><vh>development log</vh>
 <v t="zaril.20071001200718.2"><vh>research</vh></v>
 <v t="zaril.20071001195902.1" a="E"><vh>design</vh></v>
-<v t="zaril.20071125061538" a="ETV"><vh>implementation</vh>
+<v t="zaril.20071125061538" a="E"><vh>implementation</vh>
 <v t="zaril.20071125061849"><vh>add modules</vh>
 <v t="zaril.20071125065736"><vh>paths.py</vh></v>
 <v t="zaril.20071125064338"><vh>stdtrap.py</vh></v>
 <v t="zaril.20071125064413"><vh>git.py</vh></v>
 </v>
+<v t="zaril.20071225021219" a="ETV"><vh>bug: stdtrap chokes on large outputs</vh></v>
+<v t="zaril.20071224233211"><vh>port wrapper.py</vh></v>
 </v>
 </v>
 <v t="zaril.20071001200109.1"><vh>bugs/wishlist</vh></v>
@@ -160,6 +162,67 @@ sumo
 deck
 pool
 sumo
+</t>
+<t tx="zaril.20071224233211">wrapper is not a suitable name
+alternatives
+
+toolkit
+pyproject
+py
+
+cli
+
+cli high
+
+commands
+wrapper
+
+pycli
+b
+
+cli toolkit
+
+</t>
+<t tx="zaril.20071225021219">SUMMARY:
+    it turns out the thread was also blocked
+        this is probably a Python threading bug
+
+* TEST:
+def test2():
+    trap = StdTrap(stdout=True, stderr=False)
+    try:
+        print "A" * 4094
+    finally:
+        trap.close()
+
+    output = trap.stdout.read()
+    print "===="
+    print output
+
+* GOTCHA: I can't debug by writing to stdout
+WORKAROUND: write to a log file...
+
+class Log:
+    def __init__(self, path):
+        if os.path.exists(path):
+            os.remove(path)
+
+        self.fh = file(path, "w")
+
+    def write(self, s):
+        self.fh.write(s)
+        self.fh.flush()
+
+DISCOVERY: adding a small sleep between prints makes stuff work
+   
+From the manual:
+    Not all built-in functions that may block waiting for I/O allow other threads to run. (The most popular ones (time.sleep(), file.read(), select.select()) work as expected.)
+
+
+how do I set non blocking mode?
+
+IDEAS
+    run the splicer in a separate process
 </t>
 </tnodes>
 </leo_file>
