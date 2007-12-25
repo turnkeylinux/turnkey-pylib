@@ -253,24 +253,21 @@ class UnitedStdTrap(StdTrap):
         self.transparent = transparent
         
         sys.stdout.flush()
-        self.stdout_pid, self.stdout, self.stdout_dupfd = self.trapfd(sys.stdout.fileno())
+        self.stdout_splice = self.Splicer(sys.stdout.fileno(), usepty, transparent)
 
         sys.stderr.flush()
         self.stderr_dupfd = os.dup(sys.stderr.fileno())
         os.dup2(sys.stdout.fileno(), sys.stderr.fileno())
 
-        self.stderr_orig = sys.stderr
-
-        self.std = self.stderr = self.stdout
+        self.std = self.stderr = self.stdout = None
 
     def close(self):
         sys.stdout.flush()
-        self.restorefd(sys.stdout.fileno(), self.stdout_dupfd)
+        self.std = self.stderr = self.stdout = StringIO(self.stdout_splice.close())
 
         sys.stderr.flush()
-        self.restorefd(sys.stderr.fileno(), self.stderr_dupfd)
-
-        os.waitpid(self.stdout_pid, 0)
+        os.dup2(self.stderr_dupfd, sys.stderr.fileno())
+        os.close(self.stderr_dupfd)
 
 def silence(callback, args=()):
     """convenience function - traps stdout and stderr for callback.
@@ -350,19 +347,36 @@ def test(transparent=False):
 
 
 def test2():
-    trap = StdTrap(stdout=True, stderr=True)
+    trap = StdTrap(stdout=True, stderr=True, transparent=False)
 
     try:
-        print "A" * (2 ** 17)
-        print >> sys.stderr, "B" * (2 ** 18)
+        for i in range(1000):
+            print "A" * 70
+            sys.stdout.flush()
+            print >> sys.stderr, "B" * 70
+            sys.stderr.flush()
+            
     finally:
         trap.close()
 
-    assert len(trap.stdout.read()) == (2**17) + 1
-    assert len(trap.stderr.read()) == (2**18) + 1
+    assert len(trap.stdout.read()) == 71000
+    assert len(trap.stderr.read()) == 71000
+
+def test3():
+    trap = UnitedStdTrap(transparent=True)
+    try:
+        for i in range(10):
+            print "A" * 70
+            sys.stdout.flush()
+            print >> sys.stderr, "B" * 70
+            sys.stderr.flush()
+    finally:
+        trap.close()
+
+    print len(trap.stdout.read())
 
 if __name__ == '__main__':
-    test2()
+    test3()
     
 if __name__ == '__main__X':
      test(False)
