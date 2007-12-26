@@ -3,7 +3,7 @@
 <leo_file>
 <leo_header file_format="2" tnodes="0" max_tnode_index="48" clone_windows="0"/>
 <globals body_outline_ratio="0.200428724544">
-	<global_window_position top="0" left="537" height="933" width="734"/>
+	<global_window_position top="0" left="536" height="933" width="734"/>
 	<global_log_window_position top="0" left="0" height="0" width="0"/>
 </globals>
 <preferences/>
@@ -19,10 +19,10 @@
 <v t="zaril.20071125064338"><vh>stdtrap.py</vh></v>
 <v t="zaril.20071125064413"><vh>git.py</vh></v>
 </v>
-<v t="zaril.20071225021219" a="ETV"><vh>bug: stdtrap chokes on large outputs</vh>
+<v t="zaril.20071225021219" a="E"><vh>bug: stdtrap chokes on large outputs</vh>
 <v t="zaril.20071225091309"><vh>bug: empty output still deadlocks sometimes</vh></v>
 </v>
-<v t="zaril.20071224233211"><vh>port wrapper.py</vh></v>
+<v t="zaril.20071224233211" a="TV"><vh>port pyproject wrapper.py</vh></v>
 </v>
 </v>
 <v t="zaril.20071001200109.1"><vh>bugs/wishlist</vh></v>
@@ -165,24 +165,37 @@ deck
 pool
 sumo
 </t>
-<t tx="zaril.20071224233211">wrapper is not a suitable name
+<t tx="zaril.20071224233211">
+Q: what do we call this?
 alternatives
+    toolkit
+    pyproject
+    cli high
+    commands
+    wrapper
+    pycli
+    cli toolkit    
+    pyproject_common
+    pyproject shared
+    skeleton
 
-toolkit
-pyproject
-py
+A:
+    pyproject.CliWrapper
 
-cli
+* IDEAS
+    override base class
+    class method only?
+    integrate version.py with cli_toolkit
 
-cli high
+    does a class have an embedded file parameter?
+        or module parameter from which we can access file
 
-commands
-wrapper
+--debug and --profile should be supported at the level of the wrapper too
 
-pycli
-b
-
-cli toolkit
+    maybe pyproject installs a library? (instead of putting pyproject_wrapper in sterile-pylib)
+ 
+Q: what functionality does the wrapper implement?
+autoversioning (pyproject specific)
 
 </t>
 <t tx="zaril.20071225021219">SUMMARY:
