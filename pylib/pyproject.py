@@ -202,6 +202,14 @@ class CliWrapper:
 
     @classmethod
     def get_version(cls):
+        """Gets version of program -> version
+
+        Looks for version in the following places (by order):
+        1) <INSTALL_PATH>/version.txt (if it exists)
+        2) debian/changelog (if it exists - parsed with dpkg-parsechangelog)
+        3) `autoversion HEAD`
+        """
+        
         version_file = join(cls.INSTALL_PATH, "version.txt")
 
         if lexists(version_file):
