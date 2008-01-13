@@ -199,6 +199,8 @@ class Command:
 
         LIMITATIONS: unless we are using outputsearch, output will be empty until the command finished.
         """
+        assert self.observeOutput == True
+        
         if len(self._output):
             return self._output.getvalue()
         
@@ -233,6 +235,8 @@ class Command:
           You can check the status() to see if the process is still running.
         - Output is collected and can be accessed by the output() method [*]
         """
+        assert self.observeOutput == True
+        
         patterns = []
         if not type(p) in (tuple, list):
             patterns.append(p)
