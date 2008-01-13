@@ -111,6 +111,7 @@ class Command:
         if observeOutput:
             self._child.fromchild = FileEventAdaptor(self._child.fromchild)
             self._child.fromchild.addObserver(self._ChildObserver(self))
+        self.observeOutput = observeOutput
         
         self._dlog("# command started (pid=%d, pty=%s): %s" % (self._child.pid,
                                                                `pty`,
@@ -153,9 +154,13 @@ class Command:
 
         self._dlog("# command (pid %d) finished" % self._child.pid)
         self._state = Command.STATE_FINISHED
-        self._child.fromchild.delObserversAll()
 
         return self._state
+
+    def free(self):
+        """Free cyclical reference after we finish the command"""
+        if self.observeOutput:
+            self._child.fromchild.delObserversAll()
 
     def exitcode(self):
         """return the command's exitcode"""
