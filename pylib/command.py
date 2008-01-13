@@ -54,17 +54,15 @@ class Command:
         c.wait()
 
     print c.output()
+    c.free()
 
     c = Command("./test.py")
     while c.output() is None:
         time.sleep(1)
 
     print "output = '%s', exitcode = %d" % (c.output(), c.exitcode())
+    c.free()
 
-    GOTCHA: if observeOutput=True, the caller must verify that the command
-    has finished with the status() command or Command will leak open
-    file descriptors.
-    
     """
     STATE_RUNNING = 0
     STATE_FINISHED = 1
@@ -158,7 +156,8 @@ class Command:
         return self._state
 
     def free(self):
-        """Free cyclical reference after we finish the command"""
+        """Unless observeOutput=False, you must call this method when
+        you are finished to free a cyclical reference"""
         if self.observeOutput:
             self._child.fromchild.delObserversAll()
 
