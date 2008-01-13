@@ -54,14 +54,14 @@ class Command:
         c.wait()
 
     print c.output()
-    c.free()
+    c.freeref()
 
     c = Command("./test.py")
     while c.output() is None:
         time.sleep(1)
 
     print "output = '%s', exitcode = %d" % (c.output(), c.exitcode())
-    c.free()
+    c.freeref()
 
     """
     STATE_RUNNING = 0
@@ -155,7 +155,7 @@ class Command:
 
         return self._state
 
-    def free(self):
+    def freeref(self):
         """Unless observeOutput=False, you must call this method when
         you are finished to free a cyclical reference"""
         if self.observeOutput:
