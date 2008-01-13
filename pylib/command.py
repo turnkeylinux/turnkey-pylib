@@ -149,6 +149,8 @@ class Command:
 
         self._dlog("# command (pid %d) finished" % self._child.pid)
         self._state = Command.STATE_FINISHED
+        self._child.fromchild.delObserversAll()
+
         return self._state
 
     def exitcode(self):

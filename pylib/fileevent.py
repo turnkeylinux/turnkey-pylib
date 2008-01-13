@@ -25,6 +25,9 @@ class FileEventAdaptor:
 
     def delObserver(self, observer):
         self.observers.remove(observer)
+
+    def delObserversAll(self):
+        self.observers = []
         
     def __getattr__(self, attr):
         return getattr(self.fh, attr)
