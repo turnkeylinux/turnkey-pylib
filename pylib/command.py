@@ -84,7 +84,7 @@ class Command:
                 self.command._dlog("# EVENT '%s':\n%s" % (event, "".join(val)))
                 self.command._output.write("".join(val))
 
-    def __init__(self, cmd, runas=None, pty=False, setpgrp=False, debug=False, observeOutput=False):
+    def __init__(self, cmd, runas=None, pty=False, setpgrp=False, debug=False, observeOutput=True):
         """Args:
         'cmd' what command to execute
             Can be a list ("/bin/ls", "-la")
