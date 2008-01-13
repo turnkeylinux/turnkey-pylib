@@ -60,6 +60,10 @@ class Command:
         time.sleep(1)
 
     print "output = '%s', exitcode = %d" % (c.output(), c.exitcode())
+
+    GOTCHA: if observeOutput=True, the caller must verify that the command
+    has finished with the status() command or Command will leak open
+    file descriptors.
     
     """
     STATE_RUNNING = 0
@@ -82,7 +86,7 @@ class Command:
                 self.command._dlog("# EVENT '%s':\n%s" % (event, "".join(val)))
                 self.command._output.write("".join(val))
 
-    def __init__(self, cmd, runas=None, pty=False, setpgrp=False, debug=False, observeOutput=True):
+    def __init__(self, cmd, runas=None, pty=False, setpgrp=False, debug=False, observeOutput=False):
         """Args:
         'cmd' what command to execute
             Can be a list ("/bin/ls", "-la")
