@@ -74,6 +74,20 @@ def set_blocking(fd, block):
 
 class StdTrap:
     class Splicer:
+        """Inside the _splice method, stdout is intercepted at
+        the file descriptor level by redirecting it to a pipe. Now
+        whenever someone writes to stdout, we can read it out the
+        other end of the pipe.
+
+        The problem is that if we don't suck data out of this pipe
+        then eventually if enough data is written to it the process
+        writing to stdout will be blocked by the kernel, which means
+        we'll be limited to capturing up to 65K of output and after
+        that anything else will hang. So to solve that we create a
+        splicer subprocess to get around the OS's 65K buffering
+        limitation. The splicer subprocess's job is to suck the pipe
+        into a local buffer and spit it back out back to the parent
+        process through a second pipe created for this purpose"""
         @staticmethod
         def _splice(spliced_fd, usepty, transparent):
             """splice into spliced_fd -> (splicer_pid, splicer_reader, orig_fd_dup)"""
