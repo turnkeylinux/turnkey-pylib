@@ -59,29 +59,6 @@ class SignalEvent:
     def clear(self):
         self.value = False
         
-class PatchedReader:
-    """Wrapper around the reader we get back from fdopen that fixes
-    the exception raised when we try to read from a pipe that hasn't been
-    written to."""
-    
-    def __init__(self, reader):
-        self.reader = reader
-
-    def read(self, size=None):
-        try:
-            if size is None:
-                ret = self.reader.read()
-            else:
-                ret = self.reader.read(size)
-
-            return ret
-        except IOError, e:
-            if e[0] == errno.EIO:
-                return ""
-        
-    def __getattr__(self, name):
-        return getattr(self.reader, name)
-
 class Pipe:
     def __init__(self):
         r, w = os.pipe()
