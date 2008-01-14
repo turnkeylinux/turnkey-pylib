@@ -206,7 +206,7 @@ class StdTrap:
                                 if not buf:
                                     poll.unregister(splicer_pipe.w)
 
-                sys.exit(0)
+                os._exit(0)
           
         def __init__(self, spliced_fd, usepty=False, transparent=False):
             vals = self._splice(spliced_fd, usepty, transparent)

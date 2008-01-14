@@ -2,8 +2,8 @@
 <?xml-stylesheet ekr_test?>
 <leo_file>
 <leo_header file_format="2" tnodes="0" max_tnode_index="48" clone_windows="0"/>
-<globals body_outline_ratio="0.200428724544">
-	<global_window_position top="0" left="536" height="933" width="734"/>
+<globals body_outline_ratio="0.264737406217">
+	<global_window_position top="0" left="617" height="933" width="651"/>
 	<global_log_window_position top="0" left="0" height="0" width="0"/>
 </globals>
 <preferences/>
@@ -19,10 +19,11 @@
 <v t="zaril.20071125064338"><vh>stdtrap.py</vh></v>
 <v t="zaril.20071125064413"><vh>git.py</vh></v>
 </v>
-<v t="zaril.20071225021219" a="E"><vh>bug: stdtrap chokes on large outputs</vh>
+<v t="zaril.20071225021219"><vh>bug: stdtrap chokes on large outputs</vh>
 <v t="zaril.20071225091309"><vh>bug: empty output still deadlocks sometimes</vh></v>
 </v>
-<v t="zaril.20071224233211" a="TV"><vh>port pyproject wrapper.py</vh></v>
+<v t="zaril.20071224233211"><vh>port pyproject wrapper.py</vh></v>
+<v t="zaril.20080113072415" a="TV"><vh>bug: stdtrap triggers uncaught exceptions</vh></v>
 </v>
 </v>
 <v t="zaril.20071001200109.1"><vh>bugs/wishlist</vh></v>
@@ -258,6 +259,10 @@ BUG: if stderr + stdout, stdtrap jams
 refactor _splice
     don't need to save transparent in self
 
+IDEA: don't intercept stdout/stderr for the subprocess
+    freeze after exit so I can see what the process fd map is like
+
+
 </t>
 <t tx="zaril.20071225091309">def test4():
     s = StdTrap(transparent=True)
@@ -282,5 +287,62 @@ IDEA: use an opposite signalling mechanism to block until the child starts?
 put the entire child splicer in a try clause?
     IOError (interrupted by system call)
 </t>
+<t tx="zaril.20080113072415">SUMMARY  
+    the stash is being closed because of an exception
+        the exception is suppressed because of stdtrap.getoutput()
+            the exception is happening in the stdtrap subprocess
+    
+    this causes code to "jump out" of the splicer and trigger opened's finally clause
+
+    the first exception was caused by an error closing stdout (which had already been closed)
+
+    even if that was fixed there would still be an error because sys.exit itself triggers an exception
+
+    how I debugged this
+        log debug messages to file (Log class)
+        peppered splicer with marks to trace execution
+        printing traceback manually with traceback.print_exc(file=log)
+        by freezing the process with sleep and examining fd map
+
+SOLUTION: use os._exit instead of sys.exit
+
+TEST: 
+    cd stashes
+    rm -rf alon; cp -a alon.bak alon; (cd alon &amp;&amp; covin-sync-local)
+
+ISOLATED:
+
+def test5():
+    def func():
+        pass
+
+    print "output: " + getoutput(func)
+
+DISCOVERY: exception is raised in any case
+
+* IDEAS
+try to see if StdTrap also produces bug...
+    yes it does
+
+try to see where the bug is triggered...
+    litter code with Log to file entries
+        when the exception is raised it should terminate
+
+os.getpid() at the exception
+
+Q: why is the exception only triggered once?
+A: because after triggering the close sync_local doesn't reach getoutput any more
+
+Q: could the exception really be triggered AFTER sys.exit()?
+IDEA: print the pid and timestamp
+    right before the exit: mark 14 (30162, 1200267545.397315)
+    in the opened decorator: CLOSING: (30162, 1200267545.397519)
+A: yes, somehow the sys.exit(0) was triggering an exception that jumped out AFTER
+sys.exit(0)
+
+GOTCHA: sys.exit(0) raises an exception - so its caught by a try clause elsewhere
+
+
+    </t>
 </tnodes>
 </leo_file>
