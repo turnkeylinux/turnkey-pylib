@@ -60,6 +60,9 @@ class HashStore:
             
         return count
 
+    def __nonzero__(self):
+        return True
+
     def __getitem__(self, key):
         value = self.get(key)
         if value is None:
