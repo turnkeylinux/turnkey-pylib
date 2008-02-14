@@ -27,6 +27,7 @@ def setup(method):
     def wrapper(self, *args, **kws):
         orig_cwd = os.getcwd()
         os.chdir(self.path)
+        os.environ['GIT_DIR'] = self.gitdir
 
         def make_relative(arg):
             for constant in (None, True, False):
