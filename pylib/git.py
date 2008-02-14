@@ -131,24 +131,21 @@ class Git(object):
 
         return path[len(self.path):].lstrip("/")
 
-    @classmethod
-    def _system(cls, command, *args):
+    @setup
+    def _system(self, command, *args):
         try:
             system(command, *args)
         except ExecError, e:
-            raise cls.Error(e)
-    @setup
+            raise self.Error(e)
+
     def read_tree(self, *opts):
         """git-read-tree *opts"""
         self._system("git-read-tree", *opts)
 
-    @setup
     def update_index(self, *paths):
         """git-update-index --remove <paths>"""
-
         self._system("git-update-index --remove", *paths)
         
-    @setup
     def update_index_refresh(self):
         """git-update-index --refresh"""
         self._system("git-update-index -q --unmerged --refresh")
@@ -165,33 +162,27 @@ class Git(object):
                   if line.endswith("needs update") ]
         self.update_index(*files)
 
-    @setup
     def add(self, *paths):
         """git-add <path>"""
         # git-add chokes on empty directories
         self._system("git-add", *paths)
 
-    @setup
     def checkout(self, *args):
         """git-checkout *args"""
         self._system("git-checkout", *args)
         
-    @setup
     def checkout_index(self):
         """git-checkout-index -a -f"""
         self._system("git-checkout-index -a -f")
 
-    @setup
     def update_ref(self, *args):
         """git-update-ref [ -d ] <ref> <rev> [ <oldvalue > ]"""
         self._system("git-update-ref", *args)
 
-    @setup
     def rm_cached(self, path):
         """git-rm <path>"""
         self._system("git-rm --ignore-unmatch --cached --quiet -f -r", path)
 
-    @setup
     def commit(self, paths=(), msg=None, update_all=False, verbose=False):
         """git-commit"""
         command = "git-commit"
@@ -205,41 +196,33 @@ class Git(object):
         else:
             self._system(command, *paths)
 
-    @setup
     def merge(self, remote):
         """git-merge <remote>"""
         self._system("git-merge", remote)
 
-    @setup
     def reset(self, *args):
         """git-reset"""
         self._system("git-reset", *args)
 
-    @setup
     def branch_delete(self, branch):
         """git-branch -D <branch>"""
         self._system("git-branch -D", branch)
 
-    @setup
     def branch(self, *args):
         """git-branch *args"""
         self._system("git-branch", *args)
 
-    @setup
     def prune(self):
         """git-prune"""
         self._system("git-prune")
 
-    @setup
     def repack(self, *args):
         """git-repack *args"""
         self._system("git-repack", *args)
         
-    @setup
     def fetch(self, repository, refspec):
         self._system("git-fetch", repository, refspec)
 
-    @setup
     def raw(self, command, *args):
         """execute a raw git command.
         Returns:
@@ -252,21 +235,19 @@ class Git(object):
         except self.Error, e:
             return e[0].exitcode
 
-    @classmethod
-    def _getoutput(cls, command, *args):
+    @setup
+    def _getoutput(self, command, *args):
         try:
             output = getoutput(command, *args)
         except ExecError, e:
-            raise cls.Error(e)
+            raise self.Error(e)
         return output
 
-    @setup
     def write_tree(self):
         """git-write-tree
         Returns id of written tree"""
         return self._getoutput("git-write-tree")
 
-    @setup
     def rev_parse(self, rev):
         """git-rev-parse <rev>.
         Returns object-id of parsed rev.
@@ -277,7 +258,6 @@ class Git(object):
         except self.Error:
             return None
 
-    @setup
     def merge_base(self, a, b):
         """git-merge-base <a> <b>.
         Returns common ancestor"""
@@ -286,7 +266,6 @@ class Git(object):
         except self.Error:
             return None
 
-    @setup
     def symbolic_ref(self, name, ref=None):
         """git-symbolic-ref <name> [ <ref> ]
         Returns the value of the symbolic ref.
@@ -296,20 +275,17 @@ class Git(object):
             args.append(ref)
         return self._getoutput(*args)
 
-    @setup
     def rev_list(self, *args):
         """git-rev-list <commit>.
         Returns list of commits.
         """
         return self._getoutput("git-rev-list", *args).split('\n')
     
-    @setup
     def name_rev(self, rev):
         """git-name-rev <rev>
         Returns name of rev"""
         return self._getoutput("git-name-rev", rev).split(" ")[1]
 
-    @setup
     def show_ref(self, ref):
         """git-show-ref <rev>.
         Returns ref name if succesful
@@ -319,7 +295,6 @@ class Git(object):
         except self.Error:
             return None
 
-    @setup
     def show(self, *args):
         """git-show *args -> output"""
         return self._getoutput("git-show", *args)
@@ -365,7 +340,6 @@ class Git(object):
 
         return p.stdout
     
-    @setup
     def status(self, *paths):
         """git-diff-index --name-status HEAD
         Returns array of (status, path) changes """
@@ -376,21 +350,18 @@ class Git(object):
             return [ line.split('\t', 1) for line in output.split('\n')]
         return []
     
-    @setup
     def list_unmerged(self):
         output = self._getoutput("git-diff --name-only --diff-filter=U")
         if output:
             return output.split('\n')
         return []
 
-    @setup
     def get_commit_log(self, committish):
         """Returns commit log text for <committish>"""
 
         str = self._getoutput("git-cat-file commit", committish)
         return str[str.index('\n\n') + 2:]
 
-    @setup
     def list_changed_files(self, compared, *paths):
         """Return a list of files that changed between compared.
 
