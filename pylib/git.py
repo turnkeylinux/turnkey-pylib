@@ -111,7 +111,7 @@ class Git(object):
         # 1) it ends with .git
         # 2) seems to be initialized (objects and refs directories exist)
         self.path = realpath(path)
-        path_git = join(path, ".git")
+        path_git = join(self.path, ".git")
         if isdir(path_git):
             self.bare = False
             self.gitdir = path_git
