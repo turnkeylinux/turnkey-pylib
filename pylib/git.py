@@ -361,6 +361,9 @@ class Git(object):
         str = self._getoutput("cat-file commit", committish)
         return str[str.index('\n\n') + 2:]
 
+    def ls_files(self, *args):
+        return self._getoutput("ls-files", *args).splitlines()
+            
     def list_changed_files(self, compared, *paths):
         """Return a list of files that changed between compared.
 
