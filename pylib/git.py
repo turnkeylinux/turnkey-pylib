@@ -247,13 +247,13 @@ class Git(object):
         Returns id of written tree"""
         return self._getoutput("write-tree")
 
-    def rev_parse(self, rev):
+    def rev_parse(self, *args):
         """git-rev-parse <rev>.
         Returns object-id of parsed rev.
         Returns None on failure.
         """
         try:
-            return self._getoutput("rev-parse", rev)
+            return self._getoutput("rev-parse", *args)
         except self.Error:
             return None
 
