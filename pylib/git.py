@@ -115,12 +115,12 @@ class Git(object):
         if isdir(path_git):
             self.bare = False
             self.gitdir = path_git
-        elif path.endswith(".git") and \
-                 isdir(join(path, "refs")) and isdir(join(path, "objects")):
+        elif self.path.endswith(".git") and \
+                 isdir(join(self.path, "refs")) and isdir(join(self.path, "objects")):
             self.bare = True
-            self.gitdir = path
+            self.gitdir = self.path
         else:
-            raise self.Error("Not a git repository `%s'" % path)
+            raise self.Error("Not a git repository `%s'" % self.path)
 
     def make_relative(self, path):
         path = str(path)
