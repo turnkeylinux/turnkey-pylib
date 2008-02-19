@@ -2,6 +2,8 @@ import sys
 import os
 from os.path import *
 import subprocess
+from subprocess import PIPE
+
 import commands
 
 from executil import *
@@ -302,6 +304,19 @@ class Git(object):
         return self._getoutput("show", *args)
 
     @setup
+    def describe(self, *args):
+        """git-describe *args -> list of described tags.
+
+        Note: git-describe terminates on the first argument it can't
+        describe and we ignore that error.
+        """
+        command = ["git-describe"] + list(args)
+        p = subprocess.Popen(command, stdout=PIPE, stderr=PIPE)
+
+        stdout, stderr = p.communicate()
+        return stdout.splitlines()
+        
+    @setup
     def commit_tree(self, id, log, parents=None):
         """git-commit-tree <id> [ -p <parents> ] < <log>
         Return id of object committed"""
@@ -312,8 +327,6 @@ class Git(object):
 
             for parent in parents:
                 args += ["-p", parent]
-
-        PIPE = subprocess.PIPE
 
         p = subprocess.Popen(args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
         try:
@@ -337,7 +350,6 @@ class Git(object):
         command = [ "git-log" ]
         command.extend(args)
 
-        PIPE = subprocess.PIPE
         p = subprocess.Popen(command, stdout=PIPE, bufsize=1)
 
         return p.stdout
