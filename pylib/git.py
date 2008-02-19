@@ -242,6 +242,9 @@ class Git(object):
             raise self.Error(e)
         return output
 
+    def cat_file(self, *args):
+        return self._getoutput("cat-file", *args)
+
     def write_tree(self):
         """git-write-tree
         Returns id of written tree"""
