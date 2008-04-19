@@ -54,6 +54,12 @@ class VersionParser:
 def _lexcmp(a, b):
     i = 0
     while True:
+        if i < len(a) and a[i] == '~' and (i >= len(b) or b[i] != '~'):
+            return -1
+
+        if i < len(b) and b[i] == '~' and (i >= len(a) or a[i] != '~'):
+            return 1
+
         if len(a) == len(b):
             if i == len(a):
                 return 0
