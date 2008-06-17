@@ -13,6 +13,8 @@ try:
 except (AttributeError, ValueError):
     MAXFD = 256
 
+SHELL = os.environ.get('SHELL', '/bin/sh')
+
 def _cleanup():
     for inst in _active[:]:
         inst.poll()
@@ -122,7 +124,7 @@ class Popen4:
 
     def _run_child(self, cmd):
         if isinstance(cmd, basestring):
-            cmd = ['/bin/sh', '-c', cmd]
+            cmd = [SHELL, '-c', cmd]
         for i in range(3, MAXFD):
             try:
                 os.close(i)
