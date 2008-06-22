@@ -1,10 +1,22 @@
-"""This module implement lazy object construction.
+"""
+This module implement lazy object construction.
 
+Limitations:
+
+    introspection doesn't work on lazy object
+        workaround
+
+            instead of
+                dir(object)
+
+            try
+                dir(object._object)
+    
 Usage:
 
     class A:
         def __init__(self, a):
-            print "A(%s)" % a
+            print 'A(%s)' % a
             self.a = a
 
     # initialized immediately
