@@ -49,7 +49,7 @@ class LazyClassWrapper(object):
         return getattr(self._object, attrname)
 
     def __str__(self):
-        return self._object.__str__()
+        return str(self._object)
 
 def lazyclass(constructor):
     def wrapper(*args, **kws):
@@ -84,6 +84,8 @@ def test():
     print "after lazy initialization"
 
     print "ln.name = " + ln.name
+
+    return ln
 
 if __name__ == "__main__":
     test()
