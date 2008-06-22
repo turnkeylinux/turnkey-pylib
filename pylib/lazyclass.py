@@ -51,6 +51,9 @@ class LazyClassWrapper(object):
     def __str__(self):
         return str(self._object)
 
+    def __repr__(self):
+        return repr(self._object)
+
 def lazyclass(constructor):
     def wrapper(*args, **kws):
         return LazyClassWrapper(constructor, *args, **kws)
