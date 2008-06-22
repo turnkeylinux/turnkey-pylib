@@ -23,6 +23,8 @@ def mkarg(x):
     return s
 
 def pid_free(pid):    
+    # waitpid() prevents us from "freeing" processes we didn't start ourselves
+    # (e.g., a process start in a parent process)
     try:
         retval = os.waitpid(pid, os.WNOHANG)
         if retval[0] == pid:
