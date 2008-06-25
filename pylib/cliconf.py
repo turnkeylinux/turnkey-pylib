@@ -10,9 +10,9 @@ Features:
     3) configuration file (test.conf)
     4) built-in default (lowest precedence)
 
-- Automatic formatting of usage information
+- Automatic formatting of embedded usage information
 
-Usage::
+Example usage::
 
     from cliconf import *
     class MyOpts(Opts):
@@ -60,7 +60,25 @@ import re
 import string
 
 class Opt(object):
+    """This class represents an option.
+    
+    Iterator allows us to convert instance into a mapping/dictionary 
+
+    Example usage::
+
+        print opt.name
+        print `dict(opt)`
+
+    """
+
     def __init__(self, desc=None, short="", protect=False, default=None):
+        """Arguments:
+           <desc>       description of option (I.e., for usage)
+           <short>      one letter flag
+           <protect>    True if option is protected in suid mode
+           <default>    Default value
+        """
+
         self.desc = desc
         self.short = short
         self.protect = protect
@@ -88,6 +106,7 @@ class Opt(object):
     protected = property(protected)
 
 class BoolOpt(Opt):
+    """This class represents a boolean option"""
     @staticmethod
     def parse_bool(val):
         if val.lower() in ('', '0', 'no', 'false'):
@@ -116,6 +135,50 @@ def is_bool(opt):
     return isinstance(opt, BoolOpt)
 
 class Opts:
+    """This class represents a collection of options.
+
+    The user configures a set of options by inheriting from this class
+    and setting class attributes which represent individual options.
+
+    Options can be specified in full form, as instances of Opt or
+    subclass, or in simple form as a built-in Python value which is
+    converted into an Opt value when Opts is initialized by CliConf::
+
+        class MyOpts(Opts):
+
+            myopt = Opt(short="o")
+            mybool = BoolOpt(short="b")
+
+            simple_opt = ""
+            simple_bool = False
+
+    This configured class can specify which options will be parsed by CliConf::
+
+        class MyCliConf(CliConf):
+            Opt = MyOpt
+
+    CliConf.getopt() returns an instance of this class that can be
+    accessed to query the states of various options.
+
+    Instances of this class implement a bit of magic to allow the
+    class to have a more natural Pythonic interface.
+
+        1) Object interface::
+
+            opt = opts.my_opt
+            print opt.name
+
+        2) Sequence-like interface::
+
+            for opt in opts:
+                print opt.name
+
+        3) Dictionary-like interface::
+
+            if 'my_opt' in opts:
+                print opts['my_opt'].name
+
+    """
     def __init__(self):
         # make copies of options
         for attrname, attr in vars(self.__class__).items():
@@ -161,6 +224,25 @@ class Error(Exception):
     pass
 
 class CliConf:
+    """Cli configuration class.
+    
+    This class is configured via inheritance::
+    
+        class MyCliConf(CliConf):
+            "Syntax: $AV0 [-options] <arg>"
+
+            Opts = MyOpts
+
+    All methods in this class are either static methods or class
+    methods, so creating an instance of this class before use is not
+    required::
+
+        try:
+            opts, args = MyCliConf.getopt()
+        except MyCliConf.Error, e:
+            MyCliConf.usage(e)
+
+    """
     Error = Error
 
     env_path = None
