@@ -341,15 +341,7 @@ class CliConf:
         return opts, args
 
     @classmethod
-    def usage(cls, err=None):
-        if err:
-            print >> sys.stderr, "error: " + str(err)
-
-        if cls.__doc__:
-            tpl = string.Template(cls.__doc__)
-            buf = tpl.substitute(AV0=os.path.basename(sys.argv[0]))
-            print >> sys.stderr, buf.strip()
-
+    def _usage_fmt_order(cls):
         order = ['command line (highest precedence)']
         if cls.env_path:
             order.append('environment variable')
@@ -365,58 +357,82 @@ class CliConf:
         for i in range(1, len(order) + 1):
             buf += "%d) %s\n" % (i, order[i - 1])
 
-        print >> sys.stderr, buf
+        return buf + "\n"
 
+    @classmethod
+    def _usage_fmt_options(cls):
         opts = cls.Opts()
         rows = []
         for opt in opts:
-            col1 = ""
+            left = ""
             if opt.short:
-                col1 += "-%s " % opt.short
+                left += "-%s " % opt.short
 
-            col1 += "--" + opt.longopt
+            left += "--" + opt.longopt
             if not is_bool(opt):
-                col1 += "="
+                left += "="
 
-            col2 = []
+            right = []
             if opt.desc:
-                col2.append(opt.desc)
+                right.append(opt.desc)
 
             if cls.env_path:
                 optenv = cls.env_path + opt.name
-                col2.append("environment: " + optenv.upper())
+                right.append("environment: " + optenv.upper())
 
             if opt.val is not None:
-                col2.append("default: " + str(opt.val))
+                right.append("default: " + str(opt.val))
 
-            rows.append((opt, col1, col2))
+            rows.append((opt, left, right))
 
-        print >> sys.stderr, "Options: "
-        col1_maxlen = max([ len(col1) for opt, col1, col2 in rows ]) + 2
+        left_maxlen = max([ len(left) for opt, left, right in rows ]) + 2
 
-        def format_option(col1, col2):
-            padding = " " * (col1_maxlen - len(col1))
-            line = "  " + col1 + padding
-            if col2:
-                line += col2[0]
-                del col2[0]
+        def format_row(left, right):
+            padding = " " * (left_maxlen - len(left))
+            line = "  " + left + padding
+            if right:
+                line += right[0]
+                del right[0]
 
             buf = line + "\n"
-            for col in col2:
-                buf += "  " + " " * col1_maxlen + col + "\n"
+            for col in right:
+                buf += "  " + " " * left_maxlen + col + "\n"
 
             return buf
 
-        protected_rows = [ (col1, col2) for opt, col1, col2 in rows if opt.protected ]
-        rows = [ (col1, col2) for opt, col1, col2 in rows if not opt.protected ]
+        protected_rows = []
+        unprotected_rows = []
+        for opt, left, right in rows:
+            if opt.protected:
+                protected_rows.append((left, right))
+            else:
+                unprotected_rows.append((left, right))
 
-        for col1, col2 in rows:
-            print >> sys.stderr, format_option(col1, col2)
+        buf = ""
+        if unprotected_rows:
+            buf += "Options:\n"
+            for left, right in unprotected_rows:
+                buf += format_row(left, right) + "\n"
 
         if protected_rows:
-            print >> sys.stderr, "\nProtected options (root only):\n"
-            for col1, col2 in protected_rows: 
-                print >> sys.stderr, format_option(col1, col2)
+            buf += "\nProtected options (root only):\n\n"
+            for left, right in protected_rows: 
+                buf += format_row(left, right) + "\n"
+
+        return buf
+
+    @classmethod
+    def usage(cls, err=None):
+        if err:
+            print >> sys.stderr, "error: " + str(err)
+
+        if cls.__doc__:
+            tpl = string.Template(cls.__doc__)
+            buf = tpl.substitute(AV0=os.path.basename(sys.argv[0]))
+            print >> sys.stderr, buf.strip()
+
+        print >> sys.stderr, cls._usage_fmt_order(),
+        print >> sys.stderr, cls._usage_fmt_options(),
 
         if cls.file_path:
             buf = "Configuration file format (%s):\n\n" % cls.file_path
