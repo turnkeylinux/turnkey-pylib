@@ -316,24 +316,24 @@ class CliConf:
 
         sys.exit(1)
 
-class TestOpts(Opts):
-    bool = BoolOpt("a boolean flag", short="b", default=False)
-    val = Opt("a value", short="v")
-    a_b = Opt()
-
-    simple = "test"
-    simplebool = False
-
-class TestCliConf(CliConf):
-    """Syntax: $AV0 [-options] <arg>
-    """
-
-    Opts = TestOpts
-
-    env_path = "TEST_"
-    file_path = "test.conf"
-
 def test():
+    class TestOpts(Opts):
+        bool = BoolOpt("a boolean flag", short="b", default=False)
+        val = Opt("a value", short="v")
+        a_b = Opt()
+
+        simple = "test"
+        simplebool = False
+
+    class TestCliConf(CliConf):
+        """Syntax: $AV0 [-options] <arg>
+        """
+
+        Opts = TestOpts
+
+        env_path = "TEST_"
+        file_path = "test.conf"
+
     import pprint
     pp = pprint.PrettyPrinter()
 
