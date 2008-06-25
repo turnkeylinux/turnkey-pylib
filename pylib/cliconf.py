@@ -1,5 +1,17 @@
 """Pythonic cli configuration module
 
+Features:
+
+- Elegant Pythonic interface
+- Accept configuration from hierarchy of sources:
+
+    1) command line (highest precedence)
+    2) environment variable
+    3) configuration file (test.conf)
+    4) built-in default (lowest precedence)
+
+- Automatic formatting of usage information
+
 Usage::
 
     from cliconf import *
@@ -15,12 +27,28 @@ Usage::
         "Syntax: $AV0 [-options] <arg>"
 
         Opts = MyOpts
-        env_path = "MYPROG_"
+
+        # if you don't configure env_path
+        # the environment doesn't configure options
+
+        env_path = "MYPROG_" 
+
+        # if you don't configure file_path
+        # no configuration file is supported
+
         file_path = "/etc/myprog.conf"
 
-    opts, args = MyCliConf.getopt()
+    try:
+        opts, args = MyCliConf.getopt()
+    except MyCliConf.Error, e:
+        MyCliConf.usage(e)
+
+    if not args:
+        MyCliConf.usage("not enough arguments")
+
     for opt in opts:
         print "%s=%s" % (opt.name, opt.val)
+        print `dict(opt)`
 """
 
 import os
@@ -240,7 +268,7 @@ class CliConf:
             buf = tpl.substitute(AV0=os.path.basename(sys.argv[0]))
             print >> sys.stderr, buf.strip()
 
-        order = ['comand line (highest precedence)']
+        order = ['command line (highest precedence)']
         if cls.env_path:
             order.append('environment variable')
 
