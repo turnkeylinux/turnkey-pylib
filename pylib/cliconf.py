@@ -71,12 +71,13 @@ class Opt(object):
 
     """
 
-    def __init__(self, desc=None, short="", protect=False, default=None):
+    def __init__(self, desc=None, short="", protect=False, default=None, parser=None):
         """Arguments:
            <desc>       description of option (I.e., for usage)
            <short>      one letter flag
            <protect>    True if option is protected in suid mode
            <default>    Default value
+           <parser>     Function to use to parse option
         """
 
         self.desc = desc
@@ -85,6 +86,10 @@ class Opt(object):
 
         self.val = default
         self.name = None
+
+        # override class-level parser
+        if parser:
+            self.parser = parser
 
     def __iter__(self):
         for attrname, attr in vars(self).items():
@@ -105,23 +110,12 @@ class Opt(object):
         return False
     protected = property(protected)
 
-class BoolOpt(Opt):
-    """This class represents a boolean option"""
     @staticmethod
-    def parse_bool(val):
-        if val.lower() in ('', '0', 'no', 'false'):
-            return False
-
-        if val.lower() in ('1', 'yes', 'true'):
-            return True
-
-        raise Error("illegal value for bool (%s)" % val)
+    def parser(val):
+        return val
 
     def set_val(self, val):
-        if val not in (None, True, False):
-            val = self.parse_bool(str(val))
-            
-        self._val = val
+        self._val = self.parser(val)
 
     def get_val(self):
         if hasattr(self, '_val'):
@@ -130,6 +124,21 @@ class BoolOpt(Opt):
         return None
 
     val = property(get_val, set_val)
+
+class BoolOpt(Opt):
+    """This class represents a boolean option"""
+    @staticmethod
+    def parser(val):
+        if val in (None, True, False):
+            return val
+
+        if val.lower() in ('', '0', 'no', 'false'):
+            return False
+
+        if val.lower() in ('1', 'yes', 'true'):
+            return True
+
+        raise Error("illegal value for bool (%s)" % val)
 
 def is_bool(opt):
     return isinstance(opt, BoolOpt)
