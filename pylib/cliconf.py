@@ -288,7 +288,11 @@ class CliConf:
                 if not line or line.startswith("#"):
                     continue
 
-                name, val = re.split(r'\s+', line)
+                try:
+                    name, val = re.split(r'\s+', line, 1)
+                except ValueError:
+                    raise Error("bad line in configuration file: " +
+                                line)
                 yield name, val
         except IOError:
             pass
