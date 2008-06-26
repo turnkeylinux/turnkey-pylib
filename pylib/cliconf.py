@@ -80,16 +80,16 @@ class Opt(object):
            <parser>     Function to use to parse option
         """
 
+        # override class-level parser
+        if parser:
+            self.parser = parser
+
         self.desc = desc
         self.short = short
         self.protect = protect
 
         self.val = default
         self.name = None
-
-        # override class-level parser
-        if parser:
-            self.parser = parser
 
     def __iter__(self):
         for attrname, attr in vars(self).items():
@@ -115,7 +115,10 @@ class Opt(object):
         return val
 
     def set_val(self, val):
-        self._val = self.parser(val)
+        if val is not None:
+            val = self.parser(val)
+
+        self._val = val
 
     def get_val(self):
         if hasattr(self, '_val'):
