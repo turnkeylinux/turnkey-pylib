@@ -50,19 +50,42 @@ def set_blocking(fd, block):
 
 class Command:
     """Convenience module for executing a command
-    Usage:
 
-    c = Command("./test.py")
-    if c.state() == c.STATE_RUNNING:
-        c.wait()
+    attribute notes::
 
-    print c.output()
+        'exitcode' - None if the process hasn't exited, exitcode otherwise
 
-    c = Command("./test.py")
-    while c.output() is None:
-        time.sleep(1)
+        'output' - None if the process hasn't exited and fromchild hasn't
+                   been accessed, the full output of the process
 
-    print "output = '%s', exitcode = %d" % (c.output(), c.exitcode())
+        'status' - 
+                    STATE_RUNNING: Command still running
+                    STATE_FINISHED:	Command finished 
+                                    (or handled termination gracefully)
+                    STATE_TERMINATED: Command terminated
+
+    Usage example::
+
+        c = Command("./test.py")
+        if c.State() == c.STATE_RUNNING:
+            c.wait()
+
+        print c.output
+
+        c = Command("./test.py")
+
+        # Unless you read from command.fromchild or use
+        # command.outputsearch() command.output will be None until the
+        # command finishes.
+
+        while c.output is None: 
+            time.sleep(1)
+
+        print "output = '%s', exitcode = %d" % (c.output, c.exitcode)
+
+        c = Command("cat", pty=True)
+        print >> c.tochild, "test"
+        print c.fromchild.readline(),
 
     """
     STATE_RUNNING = 0
@@ -133,7 +156,7 @@ class Command:
         """terminate command. kills command with 'sig', then sleeps for 'gracetime', before sending SIGKILL
         """
 
-        if self.status() == Command.STATE_RUNNING:
+        if self.status == Command.STATE_RUNNING:
             if self._child.pty:
                 cc_magic = termios.tcgetattr(self._child.tochild.fileno())[-1]
                 ctrl_c = cc_magic[termios.VINTR]
@@ -145,17 +168,12 @@ class Command:
 
             os.kill(pid, sig)
             time.sleep(gracetime)
-            if self.status() != Command.STATE_FINISHED:
+            if self.status != Command.STATE_FINISHED:
                 pid_free(pid)
                 self._dprint("# command (pid %d) terminated" % self._child.pid)
                 self._state = Command.STATE_TERMINATED
 
     def status(self):
-        """return the status of the command:
-        STATE_RUNNING		Command still running
-        STATE_FINISHED		Command finished (or handled termination gracefully)
-        STATE_TERMINATED	Command terminated
-        """
         if self._state != Command.STATE_RUNNING:
             return self._state
 
@@ -167,16 +185,19 @@ class Command:
 
         return self._state
 
+    status = property(status)
+
     def exitcode(self):
-        """return the command's exitcode"""
         if self._exitcode is not None:
             return self._exitcode
 
-        if self.status() != Command.STATE_FINISHED:
+        if self.status != Command.STATE_FINISHED:
             return None
 
         self._exitcode = self._child.poll() >> 8
         return self._exitcode
+
+    exitcode = property(exitcode)
 
     def wait(self, timeout=0, interval=0.2):
         """wait for process to finish executing.
@@ -185,7 +206,7 @@ class Command:
         return value: did the process finish? True/False
 
         """
-        if self.status() == Command.STATE_FINISHED:
+        if self.status == Command.STATE_FINISHED:
             return True
         
         if timeout == 0:
@@ -194,26 +215,24 @@ class Command:
         else:
             start=time.time()
             while time.time() - start < timeout:
-                if self.status() == Command.STATE_FINISHED:
+                if self.status == Command.STATE_FINISHED:
                     return True
                 time.sleep(interval)
             return False
 
     def output(self):
-        """return the command's output as a string
-
-        LIMITATIONS: unless we are using outputsearch, output will be empty until the command finished.
-        """
         if len(self._output):
             return self._output.getvalue()
         
-        if self.status() != Command.STATE_FINISHED:
+        if self.status != Command.STATE_FINISHED:
             return None
 
         # this will read into self._output via _ChildObserver
         self.fromchild.read() 
 
         return self._output.getvalue()
+
+    output = property(output)
 
     def fromchild(self):
         """return the command's filehandler.
@@ -246,8 +265,8 @@ class Command:
 
         Side effects:
         - If we HUP, we wait for the process to finish.
-          You can check the status() to see if the process is still running.
-        - Output is collected and can be accessed by the output() method [*]
+          You can check the status to see if the process is still running.
+        - Output is collected and can be accessed by the output attribute [*]
         """
         
         patterns = []
@@ -364,7 +383,7 @@ class CommandTrue:
         if self._istrue is not None:
             return self._istrue
         
-        exitcode = self._c.exitcode()
+        exitcode = self._c.exitcode
         if exitcode is None:
             return None
 
@@ -389,9 +408,9 @@ def eval(cmd, setpgrp=False):
     
     c = Command(cmd, setpgrp=setpgrp)
     c.wait()
-    last_output = c.output()
-    last_exitcode = c.exitcode()
-    return c.exitcode() == 0
+    last_output = c.output
+    last_exitcode = c.exitcode
+    return last_exitcode == 0
 
 def output(cmd):
     """convenience function
@@ -405,6 +424,7 @@ def output(cmd):
 
     c = Command(cmd)
     c.wait()
-    last_output = c.output()
-    last_exitcode = c.exitcode()
-    return c.output()
+    last_output = c.output
+    last_exitcode = c.exitcode
+
+    return last_output
