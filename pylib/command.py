@@ -57,14 +57,12 @@ class Command:
         c.wait()
 
     print c.output()
-    c.freeref()
 
     c = Command("./test.py")
     while c.output() is None:
         time.sleep(1)
 
     print "output = '%s', exitcode = %d" % (c.output(), c.exitcode())
-    c.freeref()
 
     """
     STATE_RUNNING = 0
@@ -75,19 +73,23 @@ class Command:
         pass
 
     class _ChildObserver(Observer):
-        def __init__(self, command):
-            self.command = command
+        def __init__(self, outputbuf, debug=False):
+            self.debug = debug
+            self.outputbuf = outputbuf
+
+        def _dprint(self, event, msg):
+            if self.debug:
+                print >> sys.stderr, "# EVENT '%s':\n%s" % (event, msg)
 
         def notify(self, subject, event, val):
-
             if event in ('read', 'readline'):
-                self.command._dlog("# EVENT '%s':\n%s" % (event, val))
-                self.command._output.write(val)
+                self._dprint(event, val)
+                self.outputbuf.write(val)
             elif event in ('readlines', 'xreadlines'):
-                self.command._dlog("# EVENT '%s':\n%s" % (event, "".join(val)))
-                self.command._output.write("".join(val))
+                self._dprint(event, "".join(val))
+                self.outputbuf.write("".join(val))
 
-    def __init__(self, cmd, runas=None, pty=False, setpgrp=False, debug=False, observeOutput=True):
+    def __init__(self, cmd, runas=None, pty=False, setpgrp=False, debug=False):
         """Args:
         'cmd' what command to execute
             Can be a list ("/bin/ls", "-la")
@@ -99,6 +101,9 @@ class Command:
         """
         
         self._child = popen4.Popen4(cmd, 0, pty, runas, setpgrp)
+        self.tochild = self._child.tochild
+        self._fromchild = None
+
         self.pid = self._child.pid
         self.ppid = os.getpid()
 
@@ -110,12 +115,8 @@ class Command:
         
         self._output = FIFOBuffer()
 
-        if observeOutput:
-            self._child.fromchild = FileEventAdaptor(self._child.fromchild)
-            self._child.fromchild.addObserver(self._ChildObserver(self))
-        self.observeOutput = observeOutput
-        
-        self._dlog("# command started (pid=%d, pty=%s): %s" % (self._child.pid,
+       
+        self._dprint("# command started (pid=%d, pty=%s): %s" % (self._child.pid,
                                                                `pty`,
                                                                cmd))
 
@@ -124,7 +125,7 @@ class Command:
         if os.getpid() == self.ppid:
             self.terminate()
         
-    def _dlog(self, msg):
+    def _dprint(self, msg):
         if self._debug:
             print >> sys.stderr, msg
         
@@ -146,7 +147,7 @@ class Command:
             time.sleep(gracetime)
             if self.status() != Command.STATE_FINISHED:
                 pid_free(pid)
-                self._dlog("# command (pid %d) terminated" % self._child.pid)
+                self._dprint("# command (pid %d) terminated" % self._child.pid)
                 self._state = Command.STATE_TERMINATED
 
     def status(self):
@@ -161,16 +162,10 @@ class Command:
         if self._child.poll() == -1:
             return Command.STATE_RUNNING
 
-        self._dlog("# command (pid %d) finished" % self._child.pid)
+        self._dprint("# command (pid %d) finished" % self._child.pid)
         self._state = Command.STATE_FINISHED
 
         return self._state
-
-    def freeref(self):
-        """Unless observeOutput=False, you must call this method when
-        you are finished to free a cyclical reference"""
-        if self.observeOutput:
-            self._child.fromchild.delObserversAll()
 
     def exitcode(self):
         """return the command's exitcode"""
@@ -209,22 +204,31 @@ class Command:
 
         LIMITATIONS: unless we are using outputsearch, output will be empty until the command finished.
         """
-        assert self.observeOutput == True
-        
         if len(self._output):
             return self._output.getvalue()
         
         if self.status() != Command.STATE_FINISHED:
             return None
 
-        self._child.fromchild.read()
+        # this will read into self._output via _ChildObserver
+        self.fromchild.read() 
+
         return self._output.getvalue()
 
-    def outputfh(self):
+    def fromchild(self):
         """return the command's filehandler.
 
         NOTE: this file handler magically updates self._output"""
-        return self._child.fromchild
+
+        if self._fromchild:
+            return self._fromchild
+
+        self._fromchild = FileEventAdaptor(self._child.fromchild)
+        self._fromchild.addObserver(self._ChildObserver(self._output,
+                                                        self._debug))
+        return self._fromchild
+
+    fromchild = property(fromchild)
         
     def outputsearch(self, p, timeout=0, linemode=False):
         """Search for 'p' in the command's output, while listening for more output from command, within 'timeout'
@@ -245,7 +249,6 @@ class Command:
           You can check the status() to see if the process is still running.
         - Output is collected and can be accessed by the output() method [*]
         """
-        assert self.observeOutput == True
         
         patterns = []
         if not type(p) in (tuple, list):
@@ -289,7 +292,7 @@ class Command:
         if m:
             return m
         
-        fh = self.outputfh()
+        fh = self.fromchild
 
         def handle_events(poll_events):
             fd, mask = poll_events[0]
@@ -348,7 +351,7 @@ class CommandTrue:
     A command istrue() if its exitcode == 0
     """
     def __init__(self, cmd):
-        self._c = Command(cmd, observeOutput=False)
+        self._c = Command(cmd)
         self._istrue = None
 
     def wait(self, timeout=0):
