@@ -79,6 +79,8 @@ class Popen4:
             self._init_pty(cmd, bufsize, runas, setpgrp)
         else:
             self._init_pipe(cmd, bufsize, runas, setpgrp)
+
+        self.pty = pty
 #        _active.append(self) # DEBUG TEST
 
     def _init_pty(self, cmd, bufsize, runas, setpgrp):

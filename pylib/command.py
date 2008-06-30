@@ -6,6 +6,7 @@ import time
 import select
 import re
 import sys
+import termios
 import popen4
 from fifobuffer import FIFOBuffer
 from fileevent import *
@@ -99,6 +100,7 @@ class Command:
         
         self._child = popen4.Popen4(cmd, 0, pty, runas, setpgrp)
         self.pid = self._child.pid
+        self.ppid = os.getpid()
 
         self._setpgrp = setpgrp
         self._debug = debug
@@ -118,7 +120,9 @@ class Command:
                                                                cmd))
 
     def __del__(self):
-        pid_free(self._child.pid)
+        # don't terminate() a process we didn't start
+        if os.getpid() == self.ppid:
+            self.terminate()
         
     def _dlog(self, msg):
         if self._debug:
@@ -129,6 +133,11 @@ class Command:
         """
 
         if self.status() == Command.STATE_RUNNING:
+            if self._child.pty:
+                cc_magic = termios.tcgetattr(self._child.tochild.fileno())[-1]
+                ctrl_c = cc_magic[termios.VINTR]
+                self._child.tochild.write(ctrl_c)
+
             pid = self.pid
             if self._setpgrp:
                 pid = -pid
