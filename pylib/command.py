@@ -152,10 +152,7 @@ class Command(object):
                 self._dprint("# command (pid %d) terminated" % self._child.pid)
 
     def terminated(self):
-        try:
-            status = self._child.poll()
-        except OSError:
-            return None
+        status = self._child.poll()
 
         if not os.WIFSIGNALED(status):
             return None
@@ -164,11 +161,8 @@ class Command(object):
     terminated = property(terminated)
 
     def running(self):
-        try:
-            if self._child.poll() == -1:
-                return True
-        except OSError:
-            pass
+        if self._child.poll() == -1:
+            return True
 
         return False
     running = property(running)
@@ -177,10 +171,7 @@ class Command(object):
         if self.running:
             return None
 
-        try:
-            status = self._child.poll()
-        except OSError:
-            return None
+        status = self._child.poll()
 
         if not os.WIFEXITED(status):
             return None
