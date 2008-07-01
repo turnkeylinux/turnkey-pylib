@@ -6,7 +6,9 @@ import time
 import select
 import re
 import sys
+import errno
 import termios
+
 import popen4
 from fifobuffer import FIFOBuffer
 from fileevent import *
@@ -140,7 +142,16 @@ class Command(object):
             if self._setpgrp:
                 pid = -pid
 
-            os.kill(pid, sig)
+            try:
+                os.kill(pid, sig)
+            except OSError, e:
+                if e[0] != errno.EPERM or \
+                   not self._child.pty or \
+                   not self.wait(timeout=6, interval=0.1):
+                    raise
+
+                return
+            
             time.sleep(gracetime)
 
             if self.running:
