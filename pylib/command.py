@@ -144,7 +144,7 @@ class Command(object):
             if self.running:
                 os.kill(pid, signal.SIGKILL)
 
-                if self.running:
+                if not self.wait(timeout=3, interval=0.1):
                     raise self.Error("process just won't die!")
 
                 self._dprint("# command (pid %d) terminated" % self._child.pid)
