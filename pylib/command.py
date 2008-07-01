@@ -13,18 +13,6 @@ import popen4
 from fifobuffer import FIFOBuffer
 from fileevent import *
 
-def mkarg(x):
-    """escape an argument from shell meta characters"""
-    if '\'' not in x:
-        return ' \'' + x + '\''
-    s = ' "'
-    for c in x:
-        if c in '\\$"`':
-            s = s + '\\'
-        s = s + c
-    s = s + '"'
-    return s
-
 def set_blocking(fd, block):
     import fcntl
     arg = os.O_NONBLOCK
