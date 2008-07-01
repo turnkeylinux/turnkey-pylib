@@ -50,9 +50,6 @@ class MagicMounts:
 
 class Chroot:
     def __init__(self, newroot, environ={}):
-        if os.getuid() != 0:
-            raise Error("root privileges required for chroot")
-
         self.environ = { 'HOME': '/root',
                          'TERM': os.environ['TERM'],
                          'LC_ALL': 'C',
