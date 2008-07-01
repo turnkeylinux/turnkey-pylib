@@ -6,18 +6,12 @@ import signal
 import pwd
 import grp
 
-_active = []
-
 try:
     MAXFD = os.sysconf('SC_OPEN_MAX')
 except (AttributeError, ValueError):
     MAXFD = 256
 
 SHELL = os.environ.get('SHELL', '/bin/sh')
-
-def _cleanup():
-    for inst in _active[:]:
-        inst.poll()
 
 class CatchIOErrorWrapper:
     """wraps around a file handler and catches IOError exceptions"""
@@ -81,7 +75,6 @@ class Popen4:
             self._init_pipe(cmd, bufsize, runas, setpgrp)
 
         self.pty = pty
-#        _active.append(self) # DEBUG TEST
 
     def _init_pty(self, cmd, bufsize, runas, setpgrp):
         def tty_echo_off(fd):
@@ -181,6 +174,5 @@ class Popen4:
         pid, sts = os.waitpid(self.pid, 0)
         if pid == self.pid:
             self.sts = sts
-#            _active.remove(self) # DEBUG TEST
         return self.sts
     
