@@ -138,7 +138,11 @@ class Popen4:
             os._exit(1)
     
     def __del__(self):
-        self.poll()
+        try:
+            self.poll()
+        except OSError:
+            pass
+
         try:
             self.fromchild.close()
             self.tochild.close()
@@ -166,13 +170,10 @@ class Popen4:
         """Return the exit status of the child process if it has finished,
         or -1 if it hasn't finished yet."""
         if self.sts < 0:
-            try:
-                pid, sts = os.waitpid(self.pid, os.WNOHANG)
-                if pid == self.pid:
-                    self.sts = sts
-#                    _active.remove(self) # DEBUG TEST
-            except os.error:
-                pass
+            pid, sts = os.waitpid(self.pid, os.WNOHANG)
+            if pid == self.pid:
+                self.sts = sts
+
         return self.sts
 
     def wait(self):
