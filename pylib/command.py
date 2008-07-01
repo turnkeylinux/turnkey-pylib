@@ -42,6 +42,8 @@ class Command(object):
 
         'running' - True if process is still running, False otherwise
 
+        'terminated' - Returns signal number if terminated, None otherwise
+
     Usage example::
 
         c = Command("./test.py")
@@ -149,6 +151,18 @@ class Command(object):
 
                 self._dprint("# command (pid %d) terminated" % self._child.pid)
 
+    def terminated(self):
+        try:
+            status = self._child.poll()
+        except OSError:
+            return None
+
+        if not os.WIFSIGNALED(status):
+            return None
+        
+        return os.WTERMSIG(status)
+    terminated = property(terminated)
+
     def running(self):
         try:
             if self._child.poll() == -1:
@@ -157,7 +171,6 @@ class Command(object):
             pass
 
         return False
-
     running = property(running)
 
     def exitcode(self):
@@ -173,7 +186,6 @@ class Command(object):
             return None
 
         return os.WEXITSTATUS(status)
-
     exitcode = property(exitcode)
 
     def wait(self, timeout=0, interval=0.2):
