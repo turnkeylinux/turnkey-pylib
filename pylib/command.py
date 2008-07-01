@@ -352,7 +352,6 @@ class CommandTrue:
     """
     def __init__(self, cmd):
         self._c = Command(cmd)
-        self._istrue = None
 
     def wait(self, timeout=0):
         return self._c.wait(timeout)
@@ -361,19 +360,14 @@ class CommandTrue:
         self._c.terminate()
 
     def istrue(self):
-        if self._istrue is not None:
-            return self._istrue
-        
         exitcode = self._c.exitcode
         if exitcode is None:
             return None
 
         if exitcode:
-            self._istrue = False
+            return False
         else:
-            self._istrue = True
-
-        return self._istrue
+            return True
 
 last_exitcode = None
 last_output = None
