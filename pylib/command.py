@@ -23,24 +23,6 @@ def mkarg(x):
     s = s + '"'
     return s
 
-def pid_free(pid):    
-    # waitpid() prevents us from "freeing" processes we didn't start ourselves
-    # (e.g., a process start in a parent process)
-    try:
-        retval = os.waitpid(pid, os.WNOHANG)
-        if retval[0] == pid:
-            return retval[1]
-    except:
-        return
-    try:
-        os.kill(pid, signal.SIGKILL)
-        retval = os.waitpid(pid, 0)
-        if retval[0] == pid:
-            return retval[1]
-    except:
-        return None
-
-    
 def set_blocking(fd, block):
     import fcntl
     arg = os.O_NONBLOCK
@@ -160,7 +142,11 @@ class Command(object):
             time.sleep(gracetime)
 
             if self.running:
-                pid_free(pid)
+                os.kill(pid, signal.SIGKILL)
+
+                if self.running:
+                    raise self.Error("process just won't die!")
+
                 self._dprint("# command (pid %d) terminated" % self._child.pid)
 
     def running(self):
