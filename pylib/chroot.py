@@ -3,10 +3,9 @@ import os
 from os.path import *
 
 import paths
-import executil
 
-class Error(Exception):
-    pass
+import executil
+from executil import ExecError
 
 class MagicMounts:
     class Paths(paths.Paths):
@@ -49,6 +48,8 @@ class MagicMounts:
         self.umount()
 
 class Chroot:
+    ExecError = ExecError
+
     def __init__(self, newroot, environ={}):
         self.environ = { 'HOME': '/root',
                          'TERM': os.environ['TERM'],
@@ -72,6 +73,4 @@ class Chroot:
 
     def getoutput(self, *command):
         return executil.getoutput(*self._prepare_command(*command))
-
-
 
