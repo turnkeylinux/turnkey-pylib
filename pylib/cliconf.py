@@ -38,6 +38,9 @@ Example usage::
 
         file_path = "/etc/myprog.conf"
 
+    # needed by pyproject.CliWrapper to support -h / --help
+    usage = MyCliConf.usage 
+
     try:
         opts, args = MyCliConf.getopt()
     except MyCliConf.Error, e:
