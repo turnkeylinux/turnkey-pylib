@@ -422,6 +422,9 @@ class Git(object):
         if lexists(path):
             os.remove(path)
 
+    def remove_tag(self, name):
+        self.remove_ref("tags/" + name)
+
     def set_alternates(self, git):
         """set alternates path to point to the objects path of the specified git object"""
 
