@@ -45,8 +45,13 @@ class _PagedStdout:
 stdout = _PagedStdout()
 
 def test():
-    print >> stdout, "foo"
-    stdout.write("bar")
+    global stdout
+
+    while True:
+        line = sys.stdin.readline()
+        if not line:
+            break
+        print >> stdout, line,
 
 if __name__=="__main__":
     test()
