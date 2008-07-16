@@ -431,3 +431,9 @@ class Git(object):
         fh = file(join(self.gitdir, "objects/info/alternates"), "w")
         print >> fh, join(git.gitdir, "objects")
         fh.close()
+
+    @staticmethod
+    def set_gitignore(path, lines):
+        fh = file(join(path, ".gitignore"), "w")
+        for line in lines:
+            print >> fh, line
