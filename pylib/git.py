@@ -437,3 +437,8 @@ class Git(object):
         fh = file(join(path, ".gitignore"), "w")
         for line in lines:
             print >> fh, line
+
+    @staticmethod
+    def anchor(path):
+        fh = file(join(path, ".anchor"), "w")
+        fh.close()
