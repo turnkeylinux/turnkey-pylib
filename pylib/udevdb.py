@@ -37,9 +37,10 @@ def query(device=None):
     """query udev database and return device(s) information
        if no device is specified, all devices will be returned
     """
-    cmd = "udevadm info --export-db"
     if device:
         cmd = "udevadm info --query all --name %s" % device
+    else:
+        cmd = "udevadm info --export-db"
 
     devices = []
     for s in executil.getoutput(cmd).split('\n\n'):
