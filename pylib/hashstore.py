@@ -21,7 +21,11 @@ class HashStore:
         path = self._get_path(key)
         if not exists(path):
             return None
-        return file(path).read()
+        val = file(path).read()
+        if not val:
+            return None
+        return val
+
 
     def set(self, key, value):
         path = self._get_path(key)
