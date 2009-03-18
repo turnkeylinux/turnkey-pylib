@@ -61,7 +61,7 @@ class Chroot:
         self.magicmounts = MagicMounts(self.path)
 
     def _prepare_command(self, *command):
-        env = ['env', '-i' ] + [ name + "=" + val
+        env = ['env', '-i' ] + [ executil.mkarg(name + "=" + val)
                                  for name, val in self.environ.items() ]
 
         command = executil.fmt_command(*command)
