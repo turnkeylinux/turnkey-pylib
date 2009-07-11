@@ -5,6 +5,8 @@ import os
 import sys
 import commands
 
+from subprocess import Popen, PIPE
+
 mkarg = commands.mkarg
 
 class ExecError(Exception):
@@ -46,7 +48,7 @@ def system(command, *args):
 def getoutput(command, *args):
     """Executes <command> with <*args> -> output
     If command returns non-zero exitcode raises ExecError"""
-    
+
     command = fmt_command(command, *args)
     error, output = commands.getstatusoutput(command)
     if error:
@@ -54,3 +56,31 @@ def getoutput(command, *args):
         raise ExecError(command, exitcode, output)
 
     return output
+
+def getoutput_popen(command, input=None):
+    """Uses subprocess.Popen to execute <command>, piping <input> into stdin.
+    If command returns non-zero exitcode raise ExecError.
+    
+    Return command output.
+    """
+
+    shell=False
+    if isinstance(command, str):
+        shell=True
+
+    child = Popen(command, shell=shell, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+
+    errstr = None
+    try:
+        outstr, errstr = child.communicate(input)
+    except OSError:
+        pass
+
+    errno = child.wait()
+    if errstr is None:
+        errstr = child.stderr.read()
+
+    if errno != 0:
+        raise ExecError(command, errno, errstr)
+
+    return outstr
