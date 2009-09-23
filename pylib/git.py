@@ -283,7 +283,11 @@ class Git(object):
         """git-rev-list <commit>.
         Returns list of commits.
         """
-        return self._getoutput("rev-list", *args).split('\n')
+        output = self._getoutput("rev-list", *args)
+        if not output:
+            return []
+        
+        return output.split('\n')
     
     def name_rev(self, rev):
         """git-name-rev <rev>
