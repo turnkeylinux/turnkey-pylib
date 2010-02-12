@@ -345,6 +345,22 @@ class Git(object):
 
         return p.stdout.read().strip()
 
+    def mktree_empty(self):
+        """return an empty tree id which is needed for some comparisons"""
+
+        args = ["git-mktree"]
+        p = subprocess.Popen(args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+        try:
+            p.stdin.close()
+        except IOError:
+            pass
+        
+        err = p.wait()
+        if err:
+            raise self.Error("git-mktree failed: " + p.stderr.read())
+
+        return p.stdout.read().strip()
+
     @setup
     def log(self, *args):
         """git-log *args
@@ -446,3 +462,4 @@ class Git(object):
     def anchor(path):
         fh = file(join(path, ".anchor"), "w")
         fh.close()
+
