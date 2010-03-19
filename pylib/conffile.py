@@ -14,10 +14,10 @@ class ConfFile(dict):
             CONF_FILE = /path/to/conf
             REQUIRED = ['arg1' ,'arg2']
 
-        print foo.arg1      # display ARG1 value from /path/to/conf
-        foo.arg2 = value    # set ARG2 value
-        foo.write()         # write new/update config to /path/to/conf
-
+        conf = foo()
+        print conf.arg1     # display ARG1 value from /path/to/conf
+        conf.arg2 = value   # set ARG2 value
+        conf.write()        # write new/update config to /path/to/conf
     """
     CONF_FILE = None
     REQUIRED = []
