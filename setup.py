@@ -1,3 +1,5 @@
+# Copyright (c) 2010 Liraz Siri <liraz@turnkeylinux.org> - all rights reserved
+
 import re
 import os.path
 import commands
