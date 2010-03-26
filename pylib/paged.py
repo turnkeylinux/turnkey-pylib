@@ -1,7 +1,7 @@
 """This modules provides an stdout instances which
 redirect output through a pager if:
   A) PAGER is configured in the environment
-  B) stdout is not a tty
+  B) stdout is a tty
 """
 
 import os
