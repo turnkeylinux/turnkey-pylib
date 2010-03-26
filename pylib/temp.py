@@ -16,6 +16,7 @@ class TempFile(file):
         file.__init__(self, path, "w")
 
     def __del__(self):
+        # sanity check in case we're creating sub-processes (e.g,. stdtrap)
         if self.pid == os.getpid():
             os.remove(self.path)
 
@@ -28,5 +29,6 @@ class TempDir:
         shutil.rmtree(self.path)
         
     def __del__(self):
+        # sanity check in case we're creating sub-processes (e.g,. stdtrap)
         if self.pid == os.getpid():
             self.remove()
