@@ -4,6 +4,8 @@ when the object is dereferenced (by the same process that created it,
 not a subprocess)
 """
 import os
+from os.path import *
+
 import tempfile
 import shutil
 
@@ -16,7 +18,7 @@ class TempFile(file):
         file.__init__(self, path, "w")
 
     def __del__(self):
-        # sanity check in case we're creating sub-processes (e.g,. stdtrap)
+        # sanity check in case we use fork somewhere
         if self.pid == os.getpid():
             os.remove(self.path)
 
