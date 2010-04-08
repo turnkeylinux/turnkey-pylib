@@ -1,0 +1,9 @@
+==================
+v0.1 Release Notes
+==================
+
+* Initial release, includes:
+
+    - conffile: configuration file class targeted at shell type conf files
+    - executil: high-level convenience functions for command execution
+
