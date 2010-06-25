@@ -18,6 +18,13 @@ class ConfFile(dict):
         print conf.arg1     # display ARG1 value from /path/to/conf
         conf.arg2 = value   # set ARG2 value
         conf.write()        # write new/update config to /path/to/conf
+
+    Format:
+
+        # comments are ignored
+        NAME=alon
+        AGE=29
+
     """
     CONF_FILE = None
     REQUIRED = []
