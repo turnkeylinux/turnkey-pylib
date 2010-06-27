@@ -10,7 +10,8 @@ class ExecError(Exception):
 def _getoutput(command):
     status, output = commands.getstatusoutput(command)
     if status != 0:
-        raise ExecError()
+        return None
+
     return output
 
 def get_version():
