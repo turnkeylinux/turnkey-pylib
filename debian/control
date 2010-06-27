@@ -7,7 +7,7 @@ Standards-Version: 3.6.1
 
 Package: sterile-pylib
 Architecture: any
-Depends: python (>= 2.4)
+Depends: python (>= 2.4), turnkey-pylib
 Suggests: python-profiler
 Description: Sterile standard Python library
 
