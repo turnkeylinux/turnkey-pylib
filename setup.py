@@ -17,14 +17,13 @@ def _getoutput(command):
 
 def get_version():
     if not os.path.exists("debian/changelog"):
-        version = _getoutput("autoversion HEAD")
-        return version
-    else:
-        output = _getoutput("dpkg-parsechangelog")
-        version = [ line.split(" ")[1]
-                    for line in output.split("\n")
-                    if line.startswith("Version:") ][0]
-        return version
+        return None
+
+    output = _getoutput("dpkg-parsechangelog")
+    version = [ line.split(" ")[1]
+                for line in output.split("\n")
+                if line.startswith("Version:") ][0]
+    return version
 
 def parse_control(control):
     """parse control fields -> dict"""
