@@ -90,6 +90,24 @@ class Git(object):
 
     MERGE_MSG = MergeMsg()
 
+    class IndexLock(object):
+        def get_path(self, obj):
+            return join(obj.gitdir, "index.lock")
+
+        def __get__(self, obj, type):
+            path = self.get_path(obj)
+            return exists(path)
+        
+        def __set__(self, obj, val):
+            path = self.get_path(obj)
+            if val:
+                file(path, "w").close()
+            else:
+                if exists(path):
+                    os.remove(path)
+
+    index_lock = IndexLock()
+
     @classmethod
     def init_create(cls, path, bare=False, verbose=False):
         if not lexists(path):
