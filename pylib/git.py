@@ -446,7 +446,10 @@ class Git(object):
 
     def list_refs(self, refpath):
         """list refs in <refpath> (e.g., "heads")"""
-        return os.listdir(join(self.gitdir, "refs", refpath))
+        path = join(self.gitdir, "refs", refpath)
+        if not isdir(path):
+            return []
+        return os.listdir(path)
 
     def list_heads(self):
         return self.list_refs("heads")
