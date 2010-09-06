@@ -14,7 +14,7 @@ clean:
 
 install: build
 	dh_clean -k
-	python setup.py install --prefix $(prefix)
+	python setup.py install --prefix $(prefix) --install-layout=deb
 
 binary-indep: build install
 
