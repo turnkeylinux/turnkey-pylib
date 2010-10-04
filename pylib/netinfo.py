@@ -32,6 +32,18 @@ IFF_DYNAMIC = 0x8000L  # addr's lost on inet down
 IFF_LOWER_UP = 0x10000 # has netif_dormant_on()
 IFF_DORMANT = 0x20000  # has netif_carrier_on()
 
+def get_ifnames():
+    """ returns list of interface names (up and down) """
+    ifnames = []
+    for line in file('/proc/net/dev').readlines():
+        try:
+            ifname, junk = line.strip().split(":")
+            ifnames.append(ifname)
+        except ValueError:
+            pass
+
+    return ifnames
+
 class Error(Exception):
     pass
 
@@ -61,6 +73,9 @@ class NetInfo(object):
         raise AttributeError("no such attribute: " + attrname)
 
     def __init__(self, ifname):
+        if ifname not in get_ifnames():
+            raise Error("no such interface '%s'" % ifname)
+
         self.ifname = ifname
         self.ifreq = (self.ifname + '\0'*32)[:32]
 
@@ -102,18 +117,6 @@ class NetInfo(object):
                 return m.group(1)
 
         return None
-
-def get_ifnames():
-    """ returns list of interface names (up and down) """
-    ifnames = []
-    for line in file('/proc/net/dev').readlines():
-        try:
-            ifname, junk = line.strip().split(":")
-            ifnames.append(ifname)
-        except ValueError:
-            pass
-
-    return ifnames
 
 def get_hostname():
     return socket.gethostname()
