@@ -47,7 +47,7 @@ def get_ifnames():
 class Error(Exception):
     pass
 
-class NetInfo(object):
+class InterfaceInfo(object):
     """enumerate network related configurations"""
 
     sockfd = lazyclass(socket.socket)(socket.AF_INET, socket.SOCK_DGRAM)
