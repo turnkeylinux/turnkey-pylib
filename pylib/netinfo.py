@@ -53,7 +53,10 @@ class NetInfo(object):
             attrname = attrname[3:]
 
             if attrname in self.FLAGS:
-                return self._get_ioctl_flag(self.FLAGS[attrname])
+                try:
+                    return self._get_ioctl_flag(self.FLAGS[attrname])
+                except IOError:
+                    raise Error("could not get %s flag for %s" % (attrname, self.ifname))
 
         raise AttributeError("no such attribute: " + attrname)
 
@@ -73,11 +76,7 @@ class NetInfo(object):
         return socket.inet_ntoa(result[20:24])
 
     def _get_ioctl_flag(self, magic):
-        try:
-            result = self._get_ioctl(SIOCGIFFLAGS)
-        except IOError:
-            raise Error("could not get flags")
-
+        result = self._get_ioctl(SIOCGIFFLAGS)
         flags = struct.unpack('H', result[16:18])[0]
         return (flags & magic) != 0
 
