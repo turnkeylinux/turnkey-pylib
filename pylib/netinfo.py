@@ -23,8 +23,9 @@ class NetInfo:
         return socket.inet_ntoa(result[20:24])
 
     @property
-    def addr(self):
+    def address(self):
         return self._get_ioctl_addr(SIOCGIFADDR)
+    addr = address
 
     @property
     def netmask(self):
