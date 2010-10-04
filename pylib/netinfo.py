@@ -1,26 +1,85 @@
 import re
+
+import struct
 import socket
-import executil
 import fcntl
 
-SIOCGIFADDR = 0x8915
-SIOCGIFNETMASK = 0x891b
+from lazyclass import lazyclass
 
-class NetInfo:
+import executil
+
+SIOCGIFFLAGS = 0x8913
+SIOCGIFADDR = 0x8915 
+SIOCGIFNETMASK = 0x891b 
+SIOCGIFBRDADDR = 0x8919
+
+IFF_UP = 0x1           # interface is up
+IFF_BROADCAST = 0x2    # vald broadcast address
+IFF_DEBUG = 0x4        # internal debugging flag
+IFF_LOOPBACK = 0x8     # inet is a loopback
+IFF_POINTOPOINT = 0x10 # inet is ptp link
+IFF_NOTRAILERS = 0x20  # avoid use of trailers
+IFF_RUNNING = 0x40     # resources allocated
+IFF_NOARP = 0x80       # L2 dest addr not set
+IFF_PROMISC = 0x100    # promiscuous mode
+IFF_ALLMULTI = 0x200   # get all multicast packets
+IFF_MASTER = 0x400     # master of load balancer
+IFF_SLAVE = 0x800      # slave of load balancer
+IFF_MULTICAST = 0x1000 # supports multicast
+IFF_PORTSEL = 0x2000   # can set media type
+IFF_AUTOMEDIA = 0x4000 # auto media select active
+IFF_DYNAMIC = 0x8000L  # addr's lost on inet down
+IFF_LOWER_UP = 0x10000 # has netif_dormant_on()
+IFF_DORMANT = 0x20000  # has netif_carrier_on()
+
+class Error(Exception):
+    pass
+
+class NetInfo(object):
     """enumerate network related configurations"""
+
+    sockfd = lazyclass(socket.socket)(socket.AF_INET, socket.SOCK_DGRAM)
+
+    FLAGS = { }
+    for attr in ('up', 'broadcast', 'debug', 'loopback',
+                 'pointopoint', 'notrailers', 'running',
+                 'noarp', 'promisc', 'allmulti', 'master',
+                 'slave', 'multicast', 'portsel', 'automedia',
+                 'dynamic', 'lower_up', 'dormant'):
+        FLAGS[attr] = globals()['IFF_' + attr.upper()]
+
+    def __getattr__(self, attrname):
+        if attrname.startswith("is_"):
+            attrname = attrname[3:]
+
+            if attrname in self.FLAGS:
+                return self._get_ioctl_flag(self.FLAGS[attrname])
+
+        raise AttributeError("no such attribute: " + attrname)
 
     def __init__(self, ifname):
         self.ifname = ifname
         self.ifreq = (self.ifname + '\0'*32)[:32]
 
-    def _get_ioctl_addr(self, attrname):
+    def _get_ioctl(self, magic):
+        return fcntl.ioctl(self.sockfd.fileno(), magic, self.ifreq)
+
+    def _get_ioctl_addr(self, magic):
         try:
-            sockfd = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            result = fcntl.ioctl(sockfd.fileno(), attrname, self.ifreq)
+            result = self._get_ioctl(magic)
         except IOError:
             return None
 
         return socket.inet_ntoa(result[20:24])
+
+    def _get_ioctl_flag(self, magic):
+        try:
+            result = self._get_ioctl(SIOCGIFFLAGS)
+        except IOError:
+            raise Error("could not get flags")
+
+        flags = struct.unpack('H', result[16:18])[0]
+        return (flags & magic) != 0
 
     @property
     def address(self):
