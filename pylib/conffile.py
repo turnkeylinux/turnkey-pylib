@@ -1,5 +1,3 @@
-# Copyright (c) 2010 Alon Swartz <alon@turnkeylinux.org> - all rights reserved
-
 import os
 
 class ConfFileError(Exception):

@@ -5,6 +5,7 @@ import socket
 import fcntl
 
 import executil
+from lazyclass import lazyclass
 
 SIOCGIFFLAGS = 0x8913
 SIOCGIFADDR = 0x8915 
@@ -48,7 +49,7 @@ class Error(Exception):
 class InterfaceInfo(object):
     """enumerate network related configurations"""
 
-    sockfd = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sockfd = lazyclass(socket.socket)(socket.AF_INET, socket.SOCK_DGRAM)
 
     FLAGS = { }
     for attr in ('up', 'broadcast', 'debug', 'loopback',
