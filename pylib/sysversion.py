@@ -2,13 +2,16 @@ import os
 import re
 import executil
 
+def _parse_turnkey_release(version):
+    m = re.match(r'turnkey-.*?-(\d.*?)-[^\d]', version)
+    if m:
+        return m.group(1)
+
 def get_turnkey_release():
     """Return release_version. On error, returns None"""
     try:
         version = file("/etc/turnkey_version").read().strip()
-        m = re.match(r'turnkey-.*?-([\d\.]+)', version)
-        if m:
-            return m.group(1)
+        return _parse_turnkey_release(version)
 
     except IOError:
         pass
