@@ -2,37 +2,29 @@ import os
 import re
 import executil
 
-PATH_TURNKEY_VERSION = "/etc/turnkey_version"
-
-class Error(Exception):
-    pass
-
-def get_turnkey_version():
-    """Return (codename, release_version)"""
+def get_turnkey_release():
+    """Return release_version. On error, returns None"""
     try:
-        version = file(PATH_TURNKEY_VERSION).read().strip()
+        version = file("/etc/turnkey_version").read().strip()
+        m = re.match(r'turnkey-.*?-([\d\.]+)', version)
+        if m:
+            return m.group(1)
+
     except IOError:
-        raise Error("no such file '%s'" % PATH_TURNKEY_VERSION)
+        pass
 
-    m = re.match(r'turnkey-(.*?)-([\d\.]+)', version)
-    if not m:
-        raise Error("couldn't parse version '%s'" % version)
+def fmt_base_distribution():
+    """Return a formatted distribution string:
+        e.g., Ubuntu 8.04 Hardy LTS"""
 
-    codename, version = m.groups()
-    return codename, version
-
-def get_lsb_release():
-    """Return a dictionary of lsb values. None if no lsb_release"""
     try:
         output = executil.getoutput("lsb_release -ircd")
-    except executil.ExecError, e:
-        raise Error(e)
+    except executil.ExecError:
+        return
 
-    return dict([ line.split(':\t') 
-                  for line in output.splitlines() ])
+    d = dict([ line.split(':\t') 
+               for line in output.splitlines() ])
 
-def get_basedist():
-    d = get_lsb_release()
     codename = d['Codename'].capitalize()
     basedist = "%s %s %s" % (d['Distributor ID'],
                              d['Release'],
@@ -42,17 +34,14 @@ def get_basedist():
 
     return basedist
 
-def get_sysversion():
+def fmt_sysversion():
     version = []
-    try:
-        release = get_turnkey_version()[1]
+    release = get_turnkey_release()
+    if release:
         version.append("TurnKey Linux %s" % release)
-    except Error:
-        pass
 
-    try:
-        version.append(get_basedist())
-    except Error:
-        pass
+    basedist = fmt_base_distribution()
+    if basedist:
+        version.append(basedist)
 
     return ' / '.join(version)
