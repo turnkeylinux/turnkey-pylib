@@ -1,6 +1,6 @@
 import os
 import re
-import commands
+import executil
 
 PATH_TURNKEY_VERSION = "/etc/turnkey_version"
 
@@ -22,7 +22,12 @@ def get_turnkey_version():
     return codename, version
 
 def get_lsb_release():
-    output = commands.getoutput("lsb_release -ircd")
+    """Return a dictionary of lsb values. None if no lsb_release"""
+    try:
+        output = executil.getoutput("lsb_release -ircd")
+    except executil.ExecError, e:
+        raise Error(e)
+
     return dict([ line.split(':\t') 
                   for line in output.splitlines() ])
 
@@ -37,3 +42,17 @@ def get_basedist():
 
     return basedist
 
+def get_sysversion():
+    version = []
+    try:
+        release = get_turnkey_version()[1]
+        version.append("TurnKey Linux %s" % release)
+    except Error:
+        pass
+
+    try:
+        version.append(get_basedist())
+    except Error:
+        pass
+
+    return ' / '.join(version)
