@@ -39,12 +39,11 @@ class PidLock:
         if nonblock:
             flags = fcntl.LOCK_NB
 
-        self.fh = file(self.filename, "w+")
+        self.fh = file(self.filename, "a")
 
         try:
             fcntl.flock(self.fh.fileno(), fcntl.LOCK_EX | flags)
-            print >> self.fh, "%d" % os.getpid()
-            self.fh.flush()
+            file(self.filename, "w").write(`os.getpid()`)
         except IOError, e:
             if e.errno == errno.EWOULDBLOCK:
                 raise Locked()
