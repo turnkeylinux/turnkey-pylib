@@ -1,0 +1,10 @@
+==================
+v0.2 Release Notes
+==================
+
+* added the following modules:
+
+  - lazyclass (lazy class evaluation)
+  - netinfo (nic information)
+  - sysversion (system fingerprinting)
+  - pidlock (robust pid-specific lockfile)
