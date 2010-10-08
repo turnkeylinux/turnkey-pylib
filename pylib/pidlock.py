@@ -16,6 +16,8 @@ def pid_exists(pid):
     return True
 
 class PidLock:
+    Locked = Locked
+
     def __init__(self, filename, nonblock=False):
         self.filename = filename
         self.nonblock = nonblock
