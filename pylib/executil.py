@@ -1,24 +1,11 @@
-# Copyright (c) 2008 Liraz Siri <liraz@turnkeylinux.org>
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License as
-# published by the Free Software Foundation; either version 2 of 
-# the License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 """This module contains high-level convenience functions for safe
 command execution that properly escape arguments and raise an
 ExecError exception on error"""
 import os
 import sys
 import commands
+
+from subprocess import Popen, PIPE
 
 mkarg = commands.mkarg
 
@@ -61,7 +48,7 @@ def system(command, *args):
 def getoutput(command, *args):
     """Executes <command> with <*args> -> output
     If command returns non-zero exitcode raises ExecError"""
-    
+
     command = fmt_command(command, *args)
     error, output = commands.getstatusoutput(command)
     if error:
@@ -69,3 +56,31 @@ def getoutput(command, *args):
         raise ExecError(command, exitcode, output)
 
     return output
+
+def getoutput_popen(command, input=None):
+    """Uses subprocess.Popen to execute <command>, piping <input> into stdin.
+    If command returns non-zero exitcode raise ExecError.
+    
+    Return command output.
+    """
+
+    shell=False
+    if isinstance(command, str):
+        shell=True
+
+    child = Popen(command, shell=shell, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+
+    errstr = None
+    try:
+        outstr, errstr = child.communicate(input)
+    except OSError:
+        pass
+
+    errno = child.wait()
+    if errstr is None:
+        errstr = child.stderr.read()
+
+    if errno != 0:
+        raise ExecError(command, errno, errstr)
+
+    return outstr
