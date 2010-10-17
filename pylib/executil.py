@@ -1,6 +1,16 @@
-"""This module contains high-level convenience functions for safe
+# Copyright (c) 2010 Liraz Siri <liraz@turnkeylinux.org>
+#
+# This file is part of turnkey-pylib.
+#
+# turnkey-pylib is open source software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; either version 3 of the
+# License, or (at your option) any later version.
+"""
+This module contains high-level convenience functions for safe
 command execution that properly escape arguments and raise an
-ExecError exception on error"""
+ExecError exception on error
+"""
 import os
 import sys
 import commands
