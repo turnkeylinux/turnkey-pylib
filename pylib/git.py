@@ -397,7 +397,7 @@ class Git(object):
         Returns array of (status, path) changes """
 
         self.update_index_refresh()
-        output = self._getoutput("diff-index --name-status HEAD", *paths)
+        output = self._getoutput("diff-index --ignore-submodules --name-status HEAD", *paths)
         if output:
             return [ line.split('\t', 1) for line in output.split('\n')]
         return []
@@ -435,7 +435,7 @@ class Git(object):
             str = self._getoutput("diff-tree -r --name-only",
                                   compared[0], compared[1], *paths)
         elif len(compared) == 1:
-            str = self._getoutput("diff-index -r --name-only",
+            str = self._getoutput("diff-index --ignore-submodules -r --name-only",
                                   compared[0], *paths)
         else:
             raise self.Error("compared does not contain 1 or 2 elements")
