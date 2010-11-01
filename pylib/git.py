@@ -154,26 +154,26 @@ class Git(object):
     @setup
     def _system(self, command, *args):
         try:
-            system("git-" + command, *args)
+            system("git " + command, *args)
         except ExecError, e:
             raise self.Error(e)
 
     def read_tree(self, *opts):
-        """git-read-tree *opts"""
+        """git read-tree *opts"""
         self._system("read-tree", *opts)
 
     def update_index(self, *paths):
-        """git-update-index --remove <paths>"""
+        """git update-index --remove <paths>"""
         self._system("update-index --remove", *paths)
         
     def update_index_refresh(self):
-        """git-update-index --refresh"""
+        """git update-index --refresh"""
         self._system("update-index -q --unmerged --refresh")
 
     @setup
     def update_index_all(self):
-        """update all files that need update according to git-update-index --refresh"""
-        err, output = commands.getstatusoutput("git-update-index --refresh")
+        """update all files that need update according to git update-index --refresh"""
+        err, output = commands.getstatusoutput("git update-index --refresh")
         if not err:
             return
         output.split('\n')
@@ -183,28 +183,28 @@ class Git(object):
         self.update_index(*files)
 
     def add(self, *paths):
-        """git-add <path>"""
-        # git-add chokes on empty directories
+        """git add <path>"""
+        # git add chokes on empty directories
         self._system("add", *paths)
 
     def checkout(self, *args):
-        """git-checkout *args"""
+        """git checkout *args"""
         self._system("checkout", *args)
         
     def checkout_index(self):
-        """git-checkout-index -a -f"""
+        """git checkout-index -a -f"""
         self._system("checkout-index -a -f")
 
     def update_ref(self, *args):
-        """git-update-ref [ -d ] <ref> <rev> [ <oldvalue > ]"""
+        """git update-ref [ -d ] <ref> <rev> [ <oldvalue > ]"""
         self._system("update-ref", *args)
 
     def rm_cached(self, path):
-        """git-rm <path>"""
+        """git rm <path>"""
         self._system("rm --ignore-unmatch --cached --quiet -f -r", path)
 
     def commit(self, paths=(), msg=None, update_all=False, verbose=False):
-        """git-commit"""
+        """git commit"""
         command = "commit"
         if update_all:
             command += " -a"
@@ -217,27 +217,27 @@ class Git(object):
             self._system(command, *paths)
 
     def merge(self, remote):
-        """git-merge <remote>"""
+        """git merge <remote>"""
         self._system("merge", remote)
 
     def reset(self, *args):
-        """git-reset"""
+        """git reset"""
         self._system("reset", *args)
 
     def branch_delete(self, branch):
-        """git-branch -D <branch>"""
+        """git branch -D <branch>"""
         self._system("branch -D", branch)
 
     def branch(self, *args):
-        """git-branch *args"""
+        """git branch *args"""
         self._system("branch", *args)
 
     def prune(self):
-        """git-prune"""
+        """git prune"""
         self._system("prune")
 
     def repack(self, *args):
-        """git-repack *args"""
+        """git repack *args"""
         self._system("repack", *args)
         
     def fetch(self, repository, refspec):
@@ -257,7 +257,7 @@ class Git(object):
     @setup
     def _getoutput(self, command, *args):
         try:
-            output = getoutput("git-" + command, *args)
+            output = getoutput("git " + command, *args)
         except ExecError, e:
             raise self.Error(e)
         return output
@@ -266,12 +266,12 @@ class Git(object):
         return self._getoutput("cat-file", *args)
 
     def write_tree(self):
-        """git-write-tree
+        """git write-tree
         Returns id of written tree"""
         return self._getoutput("write-tree")
 
     def rev_parse(self, *args):
-        """git-rev-parse <rev>.
+        """git rev-parse <rev>.
         Returns object-id of parsed rev.
         Returns None on failure.
         """
@@ -281,7 +281,7 @@ class Git(object):
             return None
 
     def merge_base(self, a, b):
-        """git-merge-base <a> <b>.
+        """git merge-base <a> <b>.
         Returns common ancestor"""
         try:
             return self._getoutput("merge-base", a, b)
@@ -289,7 +289,7 @@ class Git(object):
             return None
 
     def symbolic_ref(self, name, ref=None):
-        """git-symbolic-ref <name> [ <ref> ]
+        """git symbolic-ref <name> [ <ref> ]
         Returns the value of the symbolic ref.
         """
         args = ["symbolic-ref", name]
@@ -298,7 +298,7 @@ class Git(object):
         return self._getoutput(*args)
 
     def rev_list(self, *args):
-        """git-rev-list <commit>.
+        """git rev-list <commit>.
         Returns list of commits.
         """
         output = self._getoutput("rev-list", *args)
@@ -308,12 +308,12 @@ class Git(object):
         return output.split('\n')
     
     def name_rev(self, rev):
-        """git-name-rev <rev>
+        """git name-rev <rev>
         Returns name of rev"""
         return self._getoutput("name-rev", rev).split(" ")[1]
 
     def show_ref(self, ref):
-        """git-show-ref <rev>.
+        """git show-ref <rev>.
         Returns ref name if succesful
         Returns None on failure"""
         try:
@@ -322,17 +322,17 @@ class Git(object):
             return None
 
     def show(self, *args):
-        """git-show *args -> output"""
+        """git show *args -> output"""
         return self._getoutput("show", *args)
 
     @setup
     def describe(self, *args):
-        """git-describe *args -> list of described tags.
+        """git describe *args -> list of described tags.
 
-        Note: git-describe terminates on the first argument it can't
+        Note: git describe terminates on the first argument it can't
         describe and we ignore that error.
         """
-        command = ["git-describe"] + list(args)
+        command = ["git describe"] + list(args)
         p = subprocess.Popen(command, stdout=PIPE, stderr=PIPE)
 
         stdout, stderr = p.communicate()
@@ -340,9 +340,9 @@ class Git(object):
         
     @setup
     def commit_tree(self, id, log, parents=None):
-        """git-commit-tree <id> [ -p <parents> ] < <log>
+        """git commit-tree <id> [ -p <parents> ] < <log>
         Return id of object committed"""
-        args = ["git-commit-tree", id]
+        args = ["git commit-tree", id]
         if parents:
             if not isinstance(parents, (list, tuple)):
                 parents = [ parents ]
@@ -359,14 +359,14 @@ class Git(object):
         
         err = p.wait()
         if err:
-            raise self.Error("git-commit-tree failed: " + p.stderr.read())
+            raise self.Error("git commit-tree failed: " + p.stderr.read())
 
         return p.stdout.read().strip()
 
     def mktree_empty(self):
         """return an empty tree id which is needed for some comparisons"""
 
-        args = ["git-mktree"]
+        args = ["git mktree"]
         p = subprocess.Popen(args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
         try:
             p.stdin.close()
@@ -375,17 +375,17 @@ class Git(object):
         
         err = p.wait()
         if err:
-            raise self.Error("git-mktree failed: " + p.stderr.read())
+            raise self.Error("git mktree failed: " + p.stderr.read())
 
         return p.stdout.read().strip()
 
     @setup
     def log(self, *args):
-        """git-log *args
+        """git log *args
         Return stdout pipe"""
 
 
-        command = [ "git-log" ]
+        command = [ "git log" ]
         command.extend(args)
 
         p = subprocess.Popen(command, stdout=PIPE, bufsize=1)
@@ -393,7 +393,7 @@ class Git(object):
         return p.stdout
     
     def status(self, *paths):
-        """git-diff-index --name-status HEAD
+        """git diff-index --name-status HEAD
         Returns array of (status, path) changes """
 
         self.update_index_refresh()
@@ -421,10 +421,10 @@ class Git(object):
         """Return a list of files that changed between compared.
 
         If compared is tuple/list with 2 elements, we compare the
-        compared[0] and compared[1] with git-diff-tree.
+        compared[0] and compared[1] with git diff-tree.
         
         If compared is not a tuple/list, or a tuple/list with 1 element,
-        we compare compared with git-diff-index which compares a commit/treeish to
+        we compare compared with git diff-index which compares a commit/treeish to
         the index."""
 
         self.update_index_refresh()
