@@ -14,7 +14,7 @@ clean:
 
 install: build
 	dh_clean -k
-	python setup.py install -O2 --prefix $(prefix)
+	python setup.py install -O2 --prefix $(prefix) --install-layout=deb
 
 	# delete sources / unoptimized modules
 	rm $$(find $(prefix) -type f |grep '\.pyc\?$$')
