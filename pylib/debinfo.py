@@ -7,8 +7,8 @@ import os
 from os.path import *
 
 import pwd
-import md5
 import tarfile
+from hashlib import md5
 from cStringIO import StringIO
 
 import ar
@@ -39,7 +39,7 @@ def _extract_control(path):
 
 def get_key(path):
     """calculate the debinfo key for a Debian binary package at <path>"""
-    return md5.md5(ar.extract(path, "control.tar.gz")).hexdigest()
+    return md5(ar.extract(path, "control.tar.gz")).hexdigest()
 
 def get_control_by_key(key):
     """get control data from debinfo cache by <key> -> str"""

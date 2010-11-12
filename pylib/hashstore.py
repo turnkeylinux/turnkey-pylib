@@ -1,6 +1,6 @@
 import os
 from os.path import *
-import sha
+from hashlib import sha1
 
 class Error(Exception):
     pass
@@ -14,7 +14,7 @@ class HashStore:
         self.path = realpath(path)
 
     def _get_path(self, key):
-        digest = sha.sha(key).hexdigest()
+        digest = sha1(key).hexdigest()
         return join(self.path, digest[:2], digest[2:])
 
     def get(self, key):
