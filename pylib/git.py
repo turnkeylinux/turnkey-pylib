@@ -332,7 +332,7 @@ class Git(object):
         Note: git describe terminates on the first argument it can't
         describe and we ignore that error.
         """
-        command = ["git describe"] + list(args)
+        command = ["git", "describe"] + list(args)
         p = subprocess.Popen(command, stdout=PIPE, stderr=PIPE)
 
         stdout, stderr = p.communicate()
@@ -342,7 +342,7 @@ class Git(object):
     def commit_tree(self, id, log, parents=None):
         """git commit-tree <id> [ -p <parents> ] < <log>
         Return id of object committed"""
-        args = ["git commit-tree", id]
+        args = ["git", "commit-tree", id]
         if parents:
             if not isinstance(parents, (list, tuple)):
                 parents = [ parents ]
@@ -366,7 +366,7 @@ class Git(object):
     def mktree_empty(self):
         """return an empty tree id which is needed for some comparisons"""
 
-        args = ["git mktree"]
+        args = ["git", "mktree"]
         p = subprocess.Popen(args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
         try:
             p.stdin.close()
@@ -385,7 +385,7 @@ class Git(object):
         Return stdout pipe"""
 
 
-        command = [ "git log" ]
+        command = ["git", "log"]
         command.extend(args)
 
         p = subprocess.Popen(command, stdout=PIPE, bufsize=1)
