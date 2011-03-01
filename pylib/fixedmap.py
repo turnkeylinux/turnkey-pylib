@@ -77,3 +77,10 @@ class FixedMap(dict):
             items.append((key, self[key]))
 
         return items
+
+    def values(self):
+        values = []
+        for key in self:
+            values.append(self[key])
+
+        return values
