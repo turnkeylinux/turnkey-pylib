@@ -22,6 +22,22 @@ import popen4
 from fifobuffer import FIFOBuffer
 from fileevent import *
 
+from commands import mkarg
+
+def fmt_argv(argv):
+    if not argv:
+        return ""
+
+    args = argv[1:]
+
+    for i, arg in enumerate(args):
+        if re.search(r"[\s'\"]", arg):
+            args[i] = mkarg(arg)
+        else:
+            args[i] = " " + arg
+
+    return argv[0] + "".join(args)
+
 def set_blocking(fd, block):
     import fcntl
     arg = os.O_NONBLOCK
@@ -352,6 +368,15 @@ class Command(object):
             pass
 
         return ret
+
+    def __repr__(self):
+        return "Command(%s)" % `self._cmd`
+
+    def __str__(self):
+        if isinstance(self._cmd, str):
+            return self._cmd
+
+        return fmt_argv(self._cmd)
         
 class CommandTrue:
     """
