@@ -7,7 +7,7 @@
 # published by the Free Software Foundation; either version 3 of the
 # License, or (at your option) any later version.
 
-"A convenient interface for controlling commands"
+"A high-level interface for command execution"
 
 import os
 import signal
@@ -246,6 +246,10 @@ class Command(object):
 
         if self._fromchild:
             return self._fromchild
+
+        fh = ExtendedHandle(self._child_fromchild)
+
+        self._fromchild = ExtendedHandle(self._child.fromchild)
 
         self._fromchild = FileEventAdaptor(self._child.fromchild)
         self._fromchild.addObserver(self._ChildObserver(self._output,
