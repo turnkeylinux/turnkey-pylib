@@ -38,12 +38,61 @@ def fmt_argv(argv):
 
     return argv[0] + "".join(args)
 
-def set_blocking(fd, block):
+def get_blocking(fd):
     import fcntl
-    arg = os.O_NONBLOCK
-    if block:
-        arg =~ arg
-    fcntl.fcntl(fd, fcntl.F_SETFL, arg)
+    flags = fcntl.fcntl(fd, fcntl.F_GETFL, 0)
+    if flags & os.O_NONBLOCK:
+        return False
+    else:
+        return True
+
+def set_blocking(fd, blocking):
+    import fcntl
+    flags = fcntl.fcntl(fd, fcntl.F_GETFL, 0)
+    if flags == -1:
+        flags = 0
+
+    if not blocking:
+        fcntl.fcntl(fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
+    else:
+        fcntl.fcntl(fd, fcntl.F_SETFL, flags & ~os.O_NONBLOCK)
+
+class ExtendedFileHandle:
+    class EOF(Exception):
+        pass
+
+    def __init__(self, fh):
+        self.fh = fh
+
+    def __getattr__(self, attr):
+        return getattr(self.fh, attr)
+
+    def read_nonblock(self):
+        """Non-block read.
+
+        If no output return ''.
+        If EOF (closed file descriptor) raise self.EOF exception
+        
+        """
+        set_blocking(self.fh.fileno(), 0)
+
+        output = None
+
+        try:
+            output = self.fh.fromchild.read()
+        except IOError, e:
+            if e.errno != errno.EAGAIN:
+                raise
+        finally:
+            set_blocking(self.fh.fileno(), 1)
+
+        if output is None:
+            return ''
+
+        if output == '':
+            raise self.EOF()
+
+        return output
 
 class Command(object):
     """Convenience module for executing a command
@@ -247,13 +296,13 @@ class Command(object):
         if self._fromchild:
             return self._fromchild
 
-        fh = ExtendedHandle(self._child_fromchild)
+        fh = FileEventAdaptor(self._child.fromchild)
+        fh.addObserver(self._ChildObserver(self._output,
+                                           self._debug))
 
-        self._fromchild = ExtendedHandle(self._child.fromchild)
+        fh = ExtendedFileHandle(fh)
 
-        self._fromchild = FileEventAdaptor(self._child.fromchild)
-        self._fromchild.addObserver(self._ChildObserver(self._output,
-                                                        self._debug))
+        self._fromchild = fh
         return self._fromchild
 
     fromchild = property(fromchild)
