@@ -74,17 +74,20 @@ class ExtendedFileHandle:
         If EOF (closed file descriptor) raise self.EOF exception
         
         """
-        set_blocking(self.fh.fileno(), 0)
 
+        fd = self.fh.fileno()
+        orig_blocking = get_blocking(fd)
+
+        set_blocking(fd, False)
         output = None
 
         try:
-            output = self.fh.fromchild.read()
+            output = self.fh.read()
         except IOError, e:
             if e.errno != errno.EAGAIN:
                 raise
         finally:
-            set_blocking(self.fh.fileno(), 1)
+            set_blocking(fd, orig_blocking)
 
         if output is None:
             return ''
