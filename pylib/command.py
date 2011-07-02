@@ -160,7 +160,7 @@ class Command(object):
             except OSError, e:
                 if e[0] != errno.EPERM or \
                    not self._child.pty or \
-                   not self.wait(timeout=6, interval=0.1):
+                   not self.wait(timeout=6, poll_interval=0.1):
                     raise
 
                 return
@@ -170,7 +170,7 @@ class Command(object):
             if self.running:
                 os.kill(pid, signal.SIGKILL)
 
-                if not self.wait(timeout=3, interval=0.1):
+                if not self.wait(timeout=3, poll_interval=0.1):
                     raise self.Error("process just won't die!")
 
                 self._dprint("# command (pid %d) terminated" % self._child.pid)
@@ -203,17 +203,17 @@ class Command(object):
         return os.WEXITSTATUS(status)
     exitcode = property(exitcode)
 
-    def wait(self, timeout=0, interval=0.2):
+    def wait(self, timeout=None, poll_interval=0.2):
         """wait for process to finish executing.
-        'timeout' is how long we wait (in seconds)
-        'interval' is how long we sleep between checks to see if process has finished
+        'timeout' is how long we wait in seconds (None is forever)
+        'poll_interval' is how long we sleep between checks to see if process has finished
         return value: did the process finish? True/False
 
         """
         if not self.running:
             return True
         
-        if timeout == 0:
+        if timeout is None:
             self._child.wait()
             return True
         else:
@@ -221,7 +221,7 @@ class Command(object):
             while time.time() - start < timeout:
                 if not self.running:
                     return True
-                time.sleep(interval)
+                time.sleep(poll_interval)
 
             return False
 
@@ -387,7 +387,7 @@ class CommandTrue:
     def __init__(self, cmd):
         self._c = Command(cmd)
 
-    def wait(self, timeout=0):
+    def wait(self, timeout=None):
         return self._c.wait(timeout)
 
     def terminate(self):
