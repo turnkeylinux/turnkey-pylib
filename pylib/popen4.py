@@ -49,6 +49,9 @@ class CatchIOErrorWrapper:
     def xreadlines(self):
         return self.fh.xreadlines()
 
+class Error(Exception):
+    pass
+
 class Popen4:
     """An implementation of popen2.Popen4 that can allocates a pty or a pipe for
     the executed command.
@@ -59,7 +62,7 @@ class Popen4:
 
     sts = -1
 
-    def __init__(self, cmd, bufsize=0, pty=False, runas=None, setpgrp=False):
+    def __init__(self, cmd, bufsize=0, pty=False, runas=None, setpgrp=None):
         """'runas' can be uid or username"""
         try:
             if runas is not None:
@@ -68,15 +71,21 @@ class Popen4:
         except ValueError:
             pass
 
+        if pty is True and setpgrp is False:
+            raise Error("pty=True incompatible with setpgrp=False")
+
+        if setpgrp is None:
+            setpgrp = False
+
         self.childerr = None
         if pty:
-            self._init_pty(cmd, bufsize, runas, setpgrp)
+            self._init_pty(cmd, bufsize, runas)
         else:
             self._init_pipe(cmd, bufsize, runas, setpgrp)
 
         self.pty = pty
 
-    def _init_pty(self, cmd, bufsize, runas, setpgrp):
+    def _init_pty(self, cmd, bufsize, runas):
         def tty_echo_off(fd):
             new = termios.tcgetattr(fd)
             new[3] = new[3] & ~termios.ECHO          # lflags
@@ -85,10 +94,9 @@ class Popen4:
         (pid, fd) = pty.fork()
         if not pid:
             # Child
-            if setpgrp:
-                os.setpgrp()
             if runas is not None:
                 self._drop_privileges(runas)
+
             self._run_child(cmd)
 
         tty_echo_off(fd)
