@@ -62,17 +62,25 @@ class Error(Exception):
     pass
 
 class Popen4:
-    """An implementation of popen2.Popen4 that can allocates a pty or a pipe for
-    the executed command.
+    """An implementation of popen2.Popen4 in which the output from stdut and stderr is combiend.
+    
+    Features:
 
-    Ptys are useful for cases where the unix buffering is going to ruin your day.
+    - Supports pty allocation (this may work around issues with Unix buffering)
+    - Supports setting process group.
+    - Supports privilege dropping.
     
     """
 
     sts = -1
 
     def __init__(self, cmd, bufsize=0, pty=False, runas=None, setpgrp=None):
-        """'runas' can be uid or username"""
+        """
+        Argument notes:
+
+        - 'cmd' can be a string (passed to a shell) or a tuple/array.
+        - 'runas' can be uid or username.
+        """
         try:
             if runas is not None:
                 uid = int(runas)
