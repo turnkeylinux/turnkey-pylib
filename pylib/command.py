@@ -23,6 +23,7 @@ from fifobuffer import FIFOBuffer
 from fileevent import *
 
 from commands import mkarg
+from StringIO import StringIO
 
 def fmt_argv(argv):
     if not argv:
@@ -74,7 +75,7 @@ class ExtendedFileHandle:
         If EOF (closed file descriptor) raise self.EOF exception
         
         """
-
+        
         fd = self.fh.fileno()
         orig_blocking = get_blocking(fd)
 
@@ -425,6 +426,48 @@ class Command(object):
 
         return ret
 
+    def read(self, callback=None):
+        """Read output from child.
+
+        Args:
+        'callback': callback(command, readbuf) every read loop.
+
+                    If it returns True, continue reading, 
+                    else stop reading.
+
+        Return output.
+
+        """
+
+        sio = StringIO()
+        while True:
+
+            try:
+                output = self.fromchild.read_nonblock()
+                sio.write(output)
+
+                if callback:
+                    finished = not callback(self, output)
+                    if finished:
+                        return sio.getvalue()
+
+                if not output:
+                    time.sleep(0.1)
+
+            except self.fromchild.EOF:
+                self.wait()
+                break
+
+            if not self.running:
+                break
+
+        leftovers = self.fromchild.read()
+        sio.write(leftovers)
+        if callback:
+            callback(self, leftovers)
+
+        return sio.getvalue()
+
     def __repr__(self):
         return "Command(%s)" % `self._cmd`
 
@@ -433,7 +476,7 @@ class Command(object):
             return self._cmd
 
         return fmt_argv(self._cmd)
-        
+
 class CommandTrue:
     """
     Simplified interface to Command class.
