@@ -76,8 +76,11 @@ class FileEnhancedRead:
                 If EOF return ''
 
         """
-        if wait is None or wait < 0:
+        if wait is None:
             return self.fh.read(size)
+
+        if wait < 0:
+            wait = 0
         
         fd = self.fh.fileno()
         output = None
