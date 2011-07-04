@@ -330,12 +330,12 @@ class Command(object):
 
     fromchild = property(fromchild)
         
-    def outputsearch(self, p, timeout=0, linemode=False):
+    def outputsearch(self, p, timeout=None, linemode=False):
         """Search for 'p' in the command's output, while listening for more output from command, within 'timeout'
 
         'p' can be a list of re patterns or a single re pattern
            the value of a pattern can be an re string, or a compiled re object
-        If 'timeout' is 0, wait forever [*]
+        If 'timeout' is None, wait forever [*]
 
 	'linemode' determines whether we search output line by line (as it comes), or all of the output in aggregate
         
@@ -392,83 +392,63 @@ class Command(object):
         m = check_match()
         if m:
             return m
-        
-        fh = self.fromchild
 
-        def handle_events(poll_events):
-            fd, mask = poll_events[0]
-            if mask & select.POLLIN:
-                fh.read()
-                match = check_match()
-                if match:
-                    return match
+        ref = [()]
+        started = time.time()
 
-            if mask & select.POLLHUP:
-                self.wait()
-                return ()
+        def callback(self, buf):
+            if buf:
+                m = check_match()
+                if m:
+                    ref[0] = m
+                    return False
 
-        def poll_for_new_output():
-            p = select.poll()
-            p.register(fh.fileno(), select.POLLIN | select.POLLHUP)
-            
-            started = time.time()
-            if timeout:
-                while time.time() - started < timeout:
-                    time_elapsed = time.time() - started
-                    try:
-                        events = p.poll(timeout - time_elapsed)
-                    except select.error:
-                        continue
-                    if events:
-                        ret = handle_events(events)
-                        if ret is not None:
-                            return ret
-            else:
-                while 1:
-                    try:
-                        events = p.poll()
-                    except select.error:
-                        continue
-                    if events:
-                        ret = handle_events(events)
-                        if ret is not None:
-                            return ret
+            if buf == '':
+                return False
 
-            return None
+            if timeout is not None:
+                elapsed_time = time.time() - started
+                if elapsed_time >= timeout:
+                    return False
 
-        set_blocking(fh.fileno(), 0)
-        ret = poll_for_new_output()
-        try:
-            set_blocking(fh.fileno(), 1)
-        except:
-            pass
+            return True
 
-        return ret
+        fh = self.read(callback)
+        return ref[0]
 
-    def read(self, callback=None):
+    def read(self, callback=None, callback_interval=0.1):
         """Read output from child.
 
         Args:
-        'callback': callback(command, readbuf) every read loop.
+        'callback': callback(command, readbuf) every read loop or 
+                    callback_interval (whichever comes sooner).
+
+                    readbuf may be:
+                     
+                    1) a string
+                    2) None (no input during callback_interval)
+                    2) an empty string (EOF)
 
                     If it returns True, continue reading, 
-                    else stop reading.
+                    else stop reading (finished).
 
-        Return output.
+        Return read bytes.
 
         """
+
+        if not callback:
+            return self.fromchild.read()
 
         sio = StringIO()
         while True:
 
-            output = self.fromchild.read(wait=0.1)
+            output = self.fromchild.read(wait=callback_interval)
             if output:
                 sio.write(output)
 
-            if callback:
-                finished = not callback(self, output)
-                if finished:
-                    return sio.getvalue()
+            finished = not callback(self, output)
+            if finished:
+                return sio.getvalue()
 
             if not self.running:
                 break
@@ -477,11 +457,10 @@ class Command(object):
                 self.wait()
                 break
 
-        if output != '': # don't read again if EOF
+        if output != '': # no leftovers if EOF
             leftovers = self.fromchild.read()
             sio.write(leftovers)
-            if callback:
-                callback(self, leftovers)
+            callback(self, leftovers)
 
         return sio.getvalue()
 
