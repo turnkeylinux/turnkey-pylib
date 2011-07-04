@@ -58,45 +58,61 @@ def set_blocking(fd, blocking):
     else:
         fcntl.fcntl(fd, fcntl.F_SETFL, flags & ~os.O_NONBLOCK)
 
-class ExtendedFileHandle:
-    class EOF(Exception):
-        pass
-
+class FileEnhancedRead:
     def __init__(self, fh):
         self.fh = fh
 
     def __getattr__(self, attr):
         return getattr(self.fh, attr)
 
-    def read_nonblock(self):
-        """Non-block read.
+    def read(self, size=-1, wait=None):
+        """A better read where you can (optionally) configure how long to wait for data.
 
-        If no output return ''.
-        If EOF (closed file descriptor) raise self.EOF exception
-        
+        Arguments:
+            
+        'wait': how many seconds to wait for output.
+
+                If no output return None.
+                If EOF return ''
+
         """
+        if wait is None or wait < 0:
+            return self.fh.read(size)
         
         fd = self.fh.fileno()
-        orig_blocking = get_blocking(fd)
-
-        set_blocking(fd, False)
         output = None
 
+        p = select.poll()
+        p.register(fd, select.POLLIN | select.POLLHUP)
+
+        started = time.time()
         try:
-            output = self.fh.read()
-        except IOError, e:
-            if e.errno != errno.EAGAIN:
-                raise
-        finally:
-            set_blocking(fd, orig_blocking)
+            events = p.poll(wait * 1000)
+        except select.error:
+            return self.read(size, wait - (time.time() - started))
 
-        if output is None:
+        if not events:
+            return None
+
+        mask = events[0][1]
+        if mask & select.POLLIN:
+
+            bytes = None
+
+            orig_blocking = get_blocking(fd)
+            set_blocking(fd, False)
+            try:
+                bytes = self.fh.read(size)
+            except IOError, e:
+                if e.errno != errno.EAGAIN:
+                    raise
+            finally:
+                set_blocking(fd, orig_blocking)
+
+            return bytes
+
+        if mask & select.POLLHUP:
             return ''
-
-        if output == '':
-            raise self.EOF()
-
-        return output
 
 class Command(object):
     """Convenience module for executing a command
@@ -304,7 +320,7 @@ class Command(object):
         fh.addObserver(self._ChildObserver(self._output,
                                            self._debug))
 
-        fh = ExtendedFileHandle(fh)
+        fh = FileEnhancedRead(fh)
 
         self._fromchild = fh
         return self._fromchild
@@ -442,29 +458,27 @@ class Command(object):
         sio = StringIO()
         while True:
 
-            try:
-                output = self.fromchild.read_nonblock()
+            output = self.fromchild.read(wait=0.1)
+            if output:
                 sio.write(output)
 
-                if callback:
-                    finished = not callback(self, output)
-                    if finished:
-                        return sio.getvalue()
-
-                if not output:
-                    time.sleep(0.1)
-
-            except self.fromchild.EOF:
-                self.wait()
-                break
+            if callback:
+                finished = not callback(self, output)
+                if finished:
+                    return sio.getvalue()
 
             if not self.running:
                 break
 
-        leftovers = self.fromchild.read()
-        sio.write(leftovers)
-        if callback:
-            callback(self, leftovers)
+            if output == '':
+                self.wait()
+                break
+
+        if output != '': # don't read again if EOF
+            leftovers = self.fromchild.read()
+            sio.write(leftovers)
+            if callback:
+                callback(self, leftovers)
 
         return sio.getvalue()
 
