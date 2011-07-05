@@ -65,22 +65,22 @@ class FileEnhancedRead:
     def __getattr__(self, attr):
         return getattr(self.fh, attr)
 
-    def read(self, size=-1, wait=None):
+    def read(self, size=-1, timeout=None):
         """A better read where you can (optionally) configure how long to wait for data.
 
         Arguments:
             
-        'wait': how many seconds to wait for output.
+        'timeout': how many seconds to wait before for output.
 
                 If no output return None.
                 If EOF return ''
 
         """
-        if wait is None:
+        if timeout is None:
             return self.fh.read(size)
 
-        if wait < 0:
-            wait = 0
+        if timeout < 0:
+            timeout = 0
         
         fd = self.fh.fileno()
         output = None
@@ -90,9 +90,9 @@ class FileEnhancedRead:
 
         started = time.time()
         try:
-            events = p.poll(wait * 1000)
+            events = p.poll(timeout * 1000)
         except select.error:
-            return self.read(size, wait - (time.time() - started))
+            return self.read(size, timeout - (time.time() - started))
 
         if not events:
             return None
@@ -442,7 +442,7 @@ class Command(object):
         sio = StringIO()
         while True:
 
-            output = self.fromchild.read(wait=callback_interval)
+            output = self.fromchild.read(timeout=callback_interval)
             if output:
                 sio.write(output)
 
