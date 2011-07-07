@@ -94,6 +94,7 @@ class Popen4:
         if setpgrp is None:
             setpgrp = False
 
+        self.pid = None
         self.childerr = None
         if pty:
             self._init_pty(cmd, bufsize, runas)
@@ -156,6 +157,9 @@ class Popen4:
             os._exit(1)
     
     def __del__(self):
+        if not self.pid:
+            return
+
         try:
             self.poll()
         except OSError:
@@ -187,6 +191,7 @@ class Popen4:
     def poll(self):
         """Return the exit status of the child process if it has finished,
         or -1 if it hasn't finished yet."""
+
         if self.sts < 0:
             pid, sts = os.waitpid(self.pid, os.WNOHANG)
             if pid == self.pid:

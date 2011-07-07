@@ -188,12 +188,14 @@ class Command(object):
         'setpgrp' do we setpgrp in child? (create its own process group)
         """
         
+        self.ppid = os.getpid()
+
+        self._child = None
         self._child = popen4.Popen4(cmd, 0, pty, runas, setpgrp)
         self.tochild = self._child.tochild
         self._fromchild = None
 
         self.pid = self._child.pid
-        self.ppid = os.getpid()
 
         self._setpgrp = setpgrp
         self._debug = debug
@@ -205,6 +207,9 @@ class Command(object):
                                                                cmd))
 
     def __del__(self):
+        if not self._child:
+            return
+
         # don't terminate() a process we didn't start
         if os.getpid() == self.ppid:
             self.terminate()
