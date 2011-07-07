@@ -177,7 +177,7 @@ class Command(object):
                 self._dprint(event, "".join(val))
                 self.outputbuf.write("".join(val))
 
-    def __init__(self, cmd, runas=None, pty=False, setpgrp=False, debug=False):
+    def __init__(self, cmd, runas=None, pty=False, setpgrp=None, debug=False):
         """Args:
         'cmd' what command to execute
             Can be a list ("/bin/ls", "-la")
