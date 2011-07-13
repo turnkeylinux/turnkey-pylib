@@ -1,0 +1,14 @@
+==================
+v0.3 Release Notes
+==================
+
+* added the following modules
+
+  - multiprocessing_utils: multiprocessing related utilities
+  - threadloop: simplified Thread interface (background loop)
+  - stdtrap: trap stdout/stderr
+  - paths: Pythonic interface to filesystem paths
+  - popen4: popen4 with extra features (ptys, runas, setpgrp)
+  - command: a high-level command execution module
+  - fifobuffer: file-like FIFO buffer that allows you to read back out
+    what you previously wrote in.
