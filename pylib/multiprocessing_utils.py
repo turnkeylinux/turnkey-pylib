@@ -17,23 +17,23 @@ from multiprocessing.queues import Queue, Empty
 
 from threadloop import ThreadLoop
 
-class QueueVacuum(ThreadLoop):
-    def __init__(self, q, l):
-        def callback():
-            q.wait_notempty(0.1)
-
-            while True:
-                try:
-                    val = q.get(False)
-                    l.append(val)
-
-                except Empty:
-                    break
-
-        ThreadLoop.__init__(self, callback)
-
 class WaitableQueue(Queue):
     """Queue that uses a semaphore to reliably count items in it"""
+    class Vacuum(ThreadLoop):
+        def __init__(self, q, l):
+            def callback():
+                q.wait_notempty(0.1)
+
+                while True:
+                    try:
+                        val = q.get(False)
+                        l.append(val)
+
+                    except Empty:
+                        break
+
+            ThreadLoop.__init__(self, callback)
+
     def __init__(self, maxsize=0):
         self.cond_empty = Condition()
         self.cond_notempty = Condition()
@@ -85,19 +85,42 @@ class WaitableQueue(Queue):
         finally:
             self.cond_notempty.release()
 
+class Deferred:
+    def __init__(self, callable, *args, **kwargs):
+        self.callable = callable
+        self.args = args
+        self.kwargs = kwargs
+
+    def __call__(self):
+        return self.callable(*self.args, **self.kwargs)
+
 class Parallelize:
+    class Error(Exception):
+        pass
+
     class Worker(Process):
         class Terminated(Exception):
             pass
 
         @classmethod
-        def worker(cls, done, idle, q_input, q_output, func):
+        def worker(cls, done, idle, q_executors, q_input, q_output, executor):
             def raise_exception(s, f):
                 signal.signal(s, signal.SIG_IGN)
                 raise cls.Terminated
 
             signal.signal(signal.SIGTERM, raise_exception)
             signal.signal(signal.SIGINT, raise_exception)
+
+            if isinstance(executor, Deferred):
+                idle.clear()
+                try:
+                    executor = executor()
+                    q_executors.put(executor)
+                finally:
+                    idle.set()
+
+                if not callable(executor):
+                    raise Parallelize.Error("product of deferred executor %s is not callable" % `executor`)
 
             class UNDEFINED:
                 pass
@@ -116,7 +139,7 @@ class Parallelize:
                     idle.clear()
 
                     try:
-                        retval = func(*input)
+                        retval = executor(*input)
                         q_output.put(retval)
                     except:
                         if retval is UNDEFINED:
@@ -130,7 +153,7 @@ class Parallelize:
             except cls.Terminated:
                 pass # just exit peacefully
 
-        def __init__(self, q_input, q_output, func):
+        def __init__(self, q_executors, q_input, q_output, executor):
             self.idle = Event()
             self.done = Event()
 
@@ -138,7 +161,7 @@ class Parallelize:
 
             Process.__init__(self, 
                              target=self.worker, 
-                             args=(self.done, self.idle, q_input, q_output, func))
+                             args=(self.done, self.idle, q_executors, q_input, q_output, executor))
 
         def is_busy(self):
             return self.is_alive() and not self.idle.is_set()
@@ -154,26 +177,34 @@ class Parallelize:
 
             self.done.set()
 
-    def __init__(self, size, func):
+    def __init__(self, executors):
+        for executor in executors:
+            if not callable(executor):
+                raise self.Error("executor %s is not callable" % `executor`)
+
         q_input = WaitableQueue()
         q_output = WaitableQueue()
+        q_executors = WaitableQueue()
 
         self.workers = []
-
-        for i in range(size):
-            worker = self.Worker(q_input, q_output, func)
+        for executor in executors:
+            worker = self.Worker(q_executors, q_input, q_output, executor)
             worker.start()
 
             self.workers.append(worker)
 
-        self.size = size
+        self.size = len(executors)
 
         self.q_input = q_input
+
         self.results = []
-        self._results_vacuum = QueueVacuum(q_output, self.results)
+        self._results_vacuum = WaitableQueue.Vacuum(q_output, self.results)
+
+        self.executors = []
+        self._executors_vacuum = WaitableQueue.Vacuum(q_executors, self.executors)
 
     def wait(self):
-        """wait for all input to be processed"""
+        """wait for all input to be processed (or for deferred executors to be ex"""
         def find_busy_worker():
             for worker in self.workers:
                 if worker.is_busy():
@@ -207,7 +238,7 @@ class Parallelize:
             worker.stop()
 
         aborted = []
-        inputs_vacuum = QueueVacuum(self.q_input, aborted)
+        inputs_vacuum = WaitableQueue.Vacuum(self.q_input, aborted)
 
         try:
             for worker in self.workers:
@@ -222,6 +253,8 @@ class Parallelize:
             inputs_vacuum.stop()
 
         self._results_vacuum.stop()
+        self._executors_vacuum.stop()
+
         return aborted
 
     def __call__(self, *args):
@@ -236,7 +269,7 @@ def test():
         time.sleep(seconds)
         return seconds
 
-    sleeper = Parallelize(250, sleeper)
+    sleeper = Parallelize([ sleeper ] * 250)
     print "Allocated children"
 
     try:
@@ -255,6 +288,50 @@ def test():
             print "len(aborted) + len(results) = %d" % (len(aborted) + len(sleeper.results))
 
         print "len(pool.results) = %d" % len(sleeper.results)
+
+class ExampleExecutor:
+    def __init__(self, name):
+        import os
+        import time
+
+        self.name = name
+        self.pid = os.getpid()
+
+        time.sleep(2)
+
+        print "%s.__init__: pid %d" % (self.name, self.pid)
+
+    def __call__(self, *args):
+        print "%s.__call__(%s)" % (self.name, `args`)
+        return args
+
+    def __del__(self):
+        import os
+        print "%s.__del__: self.pid=%d, os.getpid=%d" % (self.name, self.pid, os.getpid())
+
+def test2():
+    deferred = []
+    for i in range(100):
+        deferred_executor = Deferred(ExampleExecutor, i)
+        deferred.append(deferred_executor)
+
+    p = Parallelize(deferred)
+    try:
+        p.wait()
+        print "AFTER WAIT"
+        print "len(p.executors) = %d" % len(p.executors)
+
+        for executor in p.executors:
+            print executor.pid
+
+        for i in range(10):
+            p(i)
+
+        p.wait()
+        print "p.results: " + `p.results`
+    finally:
+        p.stop()
+        print "after stop"
 
 if __name__ == "__main__":
     test()
