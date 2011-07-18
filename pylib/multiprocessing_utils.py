@@ -325,31 +325,34 @@ def test():
 
         print "len(pool.results) = %d" % len(sleeper.results)
 
-class ExampleExecutor:
-    def __init__(self, name):
-        import os
-        import time
-        import random
-
-        self.name = name
-        self.pid = os.getpid()
-
-        #if random.randint(0, 1):
-        #    raise Exception
-
-        print "%s.__init__: pid %d" % (self.name, self.pid)
-
-    def __call__(self, *args):
-        print "%s.__call__(%s)" % (self.name, `args`)
-        return args
-
-    def __del__(self):
-        import os
-        print "%s.__del__: self.pid=%d, os.getpid=%d" % (self.name, self.pid, os.getpid())
-
 def test2():
+    class ExampleExecutor:
+        def __init__(self, name):
+            import os
+            import time
+            import random
+
+            self.name = name
+            self.pid = os.getpid()
+
+            ## if we want to test what happens to failed initializations
+            #if random.randint(0, 1):
+            #    raise Exception
+
+            print "%s.__init__: pid %d" % (self.name, self.pid)
+
+        def __call__(self, *args):
+            print "%s.__call__(%s)" % (self.name, `args`)
+            return args
+
+        def __del__(self):
+            import os
+            print "%s.__del__: self.pid=%d, os.getpid=%d" % (self.name, self.pid, os.getpid())
+
+    globals()[ExampleExecutor.__name__] = ExampleExecutor
+
     deferred = []
-    for i in range(200):
+    for i in range(2):
         deferred_executor = Deferred(ExampleExecutor, i)
         deferred.append(deferred_executor)
 
