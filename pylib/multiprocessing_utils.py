@@ -111,17 +111,17 @@ class Parallelize:
             signal.signal(signal.SIGTERM, raise_exception)
             signal.signal(signal.SIGINT, raise_exception)
 
-            if isinstance(executor, Deferred):
-                idle.clear()
-                try:
+            idle.clear()
+            try:
+                if isinstance(executor, Deferred):
                     executor = executor()
-                    q_executors.put(executor)
-                    initialized.set()
-                finally:
-                    idle.set()
+                    if not callable(executor):
+                        raise Parallelize.Error("product of deferred executor %s is not callable" % `executor`)
 
-                if not callable(executor):
-                    raise Parallelize.Error("product of deferred executor %s is not callable" % `executor`)
+                q_executors.put(executor)
+                initialized.set()
+            finally:
+                idle.set()
 
             class UNDEFINED:
                 pass
@@ -305,11 +305,14 @@ def test():
         time.sleep(seconds)
         return seconds
 
+    # pickle doesn't like embedded functions
+    globals()[sleeper.__name__] = sleeper
+
     sleeper = Parallelize([ sleeper ] * 250)
     print "Allocated children"
 
     try:
-        for i in range(2000):
+        for i in range(1000):
             sleeper(1)
 
         print "Queued parallelized invocations. Ctrl-C to abort!"
@@ -349,6 +352,7 @@ def test2():
             import os
             print "%s.__del__: self.pid=%d, os.getpid=%d" % (self.name, self.pid, os.getpid())
 
+    # pickle doesn't like embedded classes
     globals()[ExampleExecutor.__name__] = ExampleExecutor
 
     deferred = []
