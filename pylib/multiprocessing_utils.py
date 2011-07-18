@@ -206,7 +206,7 @@ class Parallelize:
         self.results = []
         self._results_vacuum = WaitableQueue.Vacuum(q_output, self.results)
 
-        self._executors = []
+        self._executors = None
 
     @property
     def executors(self):
@@ -214,24 +214,31 @@ class Parallelize:
             return self._executors
 
         def finished_initialization():
+            # returns 0 unless finished, else numbers of initialized workers 
+            executors = 0
             for worker in self.workers:
-                if worker.is_alive() and not worker.is_initialized():
-                    return False
+                if not worker.is_alive():
+                    continue
 
-            return True
+                if not worker.is_initialized():
+                    return 0
+
+                executors += 1
+
+            return executors
 
         while True:
-            time.sleep(0.1)
-
-            if finished_initialization():
+            initialized = finished_initialization()
+            if initialized:
                 break
 
-        while True:
-            try:
-                executor = self.q_executors.get(False)
-                self._executors.append(executor)
-            except Empty:
-                return self._executors
+        self._executors = []
+        for i in range(initialized):
+            executor = self.q_executors.get()
+            self._executors.append(executor)
+
+        self.q_executors = None
+        return self._executors
 
     def wait(self):
         """wait for all input to be processed (or for deferred executors to be ex"""
@@ -327,8 +334,6 @@ class ExampleExecutor:
         self.name = name
         self.pid = os.getpid()
 
-        time.sleep(1)
-
         #if random.randint(0, 1):
         #    raise Exception
 
@@ -344,7 +349,7 @@ class ExampleExecutor:
 
 def test2():
     deferred = []
-    for i in range(2):
+    for i in range(200):
         deferred_executor = Deferred(ExampleExecutor, i)
         deferred.append(deferred_executor)
 
