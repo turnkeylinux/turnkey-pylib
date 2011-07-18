@@ -268,6 +268,8 @@ class Parallelize:
             return
 
     def stop(self):
+        """Stop workers and return any unprocessed input values"""
+
         if not self.workers:
             return
 
