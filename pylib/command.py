@@ -434,8 +434,7 @@ class Command(object):
                     2) None (no input during callback_interval)
                     2) an empty string (EOF)
 
-                    If it returns True, continue reading, 
-                    else stop reading (finished).
+                    If callbacks returns False, stop reading
 
         Return read bytes.
 
@@ -451,7 +450,7 @@ class Command(object):
             if output:
                 sio.write(output)
 
-            finished = not callback(self, output)
+            finished = callback(self, output) is False
             if finished:
                 return sio.getvalue()
 
