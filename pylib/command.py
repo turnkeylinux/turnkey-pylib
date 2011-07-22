@@ -280,10 +280,12 @@ class Command(object):
         return os.WEXITSTATUS(status)
     exitcode = property(exitcode)
 
-    def wait(self, timeout=None, poll_interval=0.2):
+    def wait(self, timeout=None, poll_interval=0.2, callback=None):
         """wait for process to finish executing.
         'timeout' is how long we wait in seconds (None is forever)
         'poll_interval' is how long we sleep between checks to see if process has finished
+        'callback': you can use callback to check for other conditions (e.g., besides timeout) and stop wait early.
+
         return value: did the process finish? True/False
 
         """
@@ -296,6 +298,9 @@ class Command(object):
         else:
             start=time.time()
             while time.time() - start < timeout:
+                if callback and callback() is False:
+                    return False
+
                 if not self.running:
                     return True
                 time.sleep(poll_interval)
