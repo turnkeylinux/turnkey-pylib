@@ -267,7 +267,7 @@ class Parallelize:
             # only reached when there was no input and no active workers
             return
 
-    def stop(self):
+    def stop(self, finish_timeout=None):
         """Stop workers and return any unprocessed input values"""
 
         if not self.workers:
@@ -279,11 +279,31 @@ class Parallelize:
         aborted = []
         inputs_vacuum = WaitableQueue.Vacuum(self.q_input, aborted)
 
-        try:
+        started = time.time()
+
+        def any_alive():
             for worker in self.workers:
-                worker.join(timeout=1)
+                if worker.is_alive():
+                    return True
+
+            return False
+
+        try:
+            while True:
+                if not any_alive():
+                    break
+
+                if finish_timeout is not None and (time.time() - started) > finish_timeout:
+                    break
+
+                time.sleep(0.1)
+
+            for worker in self.workers:
                 if worker.is_alive():
                     worker.terminate()
+
+            for worker in self.workers:
+                if worker.is_alive():
                     worker.join()
 
             self.workers = []
