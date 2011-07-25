@@ -310,8 +310,7 @@ class Parallelize:
         finally:
             time.sleep(0.1)
             inputs_vacuum.stop()
-
-        self._results_vacuum.stop()
+            self._results_vacuum.stop()
 
         return aborted
 
