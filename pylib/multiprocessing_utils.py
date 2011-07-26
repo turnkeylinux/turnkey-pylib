@@ -353,9 +353,6 @@ def test():
         print "Finished waiting"
 
     finally:
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
-        signal.signal(signal.SIGTERM, signal.SIG_IGN)
-
         aborted = sleeper.stop()
         if aborted:
             print "len(aborted) = %d" % len(aborted)
@@ -408,9 +405,6 @@ def test2():
         p.wait()
         print "p.results: " + `p.results`
     finally:
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
-        signal.signal(signal.SIGTERM, signal.SIG_IGN)
-
         p.stop()
         print "after stop"
 
