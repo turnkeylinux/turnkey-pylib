@@ -22,3 +22,20 @@ def sigignore(*sigs):
         return wrapper
     return decorate
 
+
+def test():
+    import time
+    def handler(sig, frame):
+        print "caught sig %d" % sig
+
+    signal.signal(signal.SIGINT, handler)
+    print "before time.sleep(5) with Ctrl-C ignored"
+    sigignore(signal.SIGINT)(time.sleep)(5)
+    print "after sleep"
+
+    print "before time.sleep(5)"
+    time.sleep(10)
+    print "after sleep"
+
+if __name__ == "__main__":
+    test()
