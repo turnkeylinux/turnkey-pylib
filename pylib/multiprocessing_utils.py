@@ -273,6 +273,13 @@ class Parallelize:
         if not self.workers:
             return
 
+        # ignore SIGINT and SIGTERM for now (restore later)
+        sigint_handler = signal.getsignal(signal.SIGINT)
+        sigterm_handler = signal.getsignal(signal.SIGTERM)
+        
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+
         for worker in self.workers:
             worker.stop()
 
@@ -310,7 +317,11 @@ class Parallelize:
         finally:
             time.sleep(0.1)
             inputs_vacuum.stop()
-            self._results_vacuum.stop()
+
+        self._results_vacuum.stop()
+
+        signal.signal(signal.SIGINT, sigint_handler)
+        signal.signal(signal.SIGTERM, sigterm_handler)
 
         return aborted
 
