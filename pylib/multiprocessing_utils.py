@@ -16,7 +16,6 @@ from multiprocessing import Semaphore, Condition, Value
 from multiprocessing.queues import Queue, Empty
 
 from threadloop import ThreadLoop
-from sigignore import sigignore
 
 class WaitableQueue(Queue):
     """Queue that uses a semaphore to reliably count items in it"""
@@ -268,12 +267,18 @@ class Parallelize:
             # only reached when there was no input and no active workers
             return
 
-    @sigignore(signal.SIGINT, signal.SIGTERM)
     def stop(self, finish_timeout=None):
         """Stop workers and return any unprocessed input values"""
 
         if not self.workers:
             return
+
+        # ignore SIGINT and SIGTERM for now (restore later)
+        sigint_handler = signal.getsignal(signal.SIGINT)
+        sigterm_handler = signal.getsignal(signal.SIGTERM)
+        
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
         for worker in self.workers:
             worker.stop()
@@ -314,6 +319,9 @@ class Parallelize:
             inputs_vacuum.stop()
 
         self._results_vacuum.stop()
+
+        signal.signal(signal.SIGINT, sigint_handler)
+        signal.signal(signal.SIGTERM, sigterm_handler)
 
         return aborted
 
