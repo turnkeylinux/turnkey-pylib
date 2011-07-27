@@ -243,9 +243,14 @@ class Parallelize:
         self.q_executors = None
         return self._executors
 
-    def wait(self, keepalive=True):
+    def wait(self, keepalive=True, keepalive_spare=0):
         """wait for all input to be processed by workers. 
-        If keepalive=False: terminate idle workers once there's nothing left to do."""
+
+        If keepalive=False: 
+            terminate idle workers once there's nothing left to do.
+            but always keep alive at least keepalive_spare workers.
+
+        """
 
         def find_worker(busy):
             for worker in self.workers:
@@ -267,9 +272,23 @@ class Parallelize:
                 if self.q_input.qsize() != 0:
                     continue
 
-                worker = find_worker(busy=False)
-                if worker:
-                    worker.stop()
+                idle_workers = [ worker for worker in self.workers 
+                                 if worker.is_alive() and \
+                                    not worker.is_busy() and \
+                                    not worker.is_stopped() ]
+
+                if len(idle_workers) > keepalive_spare:
+                    for worker in idle_workers:
+
+                        # check is_busy() again just to make sure
+                        if not worker.is_busy():
+                            worker.stop()
+                            break
+
+                    continue
+
+                busy_worker = find_worker(busy=True)
+                if busy_worker:
                     continue
 
             else:
