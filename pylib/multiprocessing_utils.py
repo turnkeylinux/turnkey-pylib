@@ -171,6 +171,9 @@ class Parallelize:
         def is_initialized(self):
             return self.initialized.is_set()
 
+        def is_stopped(self):
+            return self.done.is_set()
+
         def wait(self, timeout=None):
             """wait until Worker is idle"""
             return self.idle.wait(timeout)
@@ -244,9 +247,15 @@ class Parallelize:
         """wait for all input to be processed by workers. 
         If keepalive=False: terminate idle workers once there's nothing left to do."""
 
-        def find_busy_worker():
+        def find_worker(busy):
             for worker in self.workers:
-                if worker.is_busy():
+                if not worker.is_alive() or worker.is_stopped():
+                    continue
+
+                if busy and worker.is_busy():
+                    return worker
+
+                if not busy and not worker.is_busy():
                     return worker
 
         while True:
@@ -258,19 +267,13 @@ class Parallelize:
                 if self.q_input.qsize() != 0:
                     continue
 
-                any_busy = False
-                for worker in self.workers:
-                    if worker.is_busy():
-                        any_busy = True
-                    else:
-                        worker.stop()
-
-                if any_busy:
-                    time.sleep(0.1)
+                worker = find_worker(busy=False)
+                if worker:
+                    worker.stop()
                     continue
 
             else:
-                worker = find_busy_worker()
+                worker = find_worker(busy=True)
                 if worker:
                     worker.wait()
                     continue
