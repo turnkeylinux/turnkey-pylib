@@ -120,6 +120,8 @@ class Parallelize:
 
                 q_executors.put(executor)
                 initialized.set()
+            except cls.Terminated:
+                return
             finally:
                 idle.set()
 
