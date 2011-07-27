@@ -240,8 +240,10 @@ class Parallelize:
         self.q_executors = None
         return self._executors
 
-    def wait(self):
-        """wait for all input to be processed (or for deferred executors to be ex"""
+    def wait(self, keepalive=True):
+        """wait for all input to be processed by workers. 
+        If keepalive=False: terminate idle workers once there's nothing left to do."""
+
         def find_busy_worker():
             for worker in self.workers:
                 if worker.is_busy():
@@ -252,10 +254,26 @@ class Parallelize:
 
             saved_put_counter = self.q_input.put_counter
 
-            worker = find_busy_worker()
-            if worker:
-                worker.wait()
-                continue
+            if not keepalive:
+                if self.q_input.qsize() != 0:
+                    continue
+
+                any_busy = False
+                for worker in self.workers:
+                    if worker.is_busy():
+                        any_busy = True
+                    else:
+                        worker.stop()
+
+                if any_busy:
+                    time.sleep(0.1)
+                    continue
+
+            else:
+                worker = find_busy_worker()
+                if worker:
+                    worker.wait()
+                    continue
 
             # give puts to the input Queue a chance to make it through
             time.sleep(0.1)
