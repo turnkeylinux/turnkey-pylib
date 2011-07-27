@@ -267,8 +267,18 @@ class Parallelize:
                 if not busy and not worker.is_busy():
                     return worker
 
+        def any_alive():
+            for worker in self.workers:
+                if worker.is_alive():
+                    return True
+
+            return False
+
         while True:
             self.q_input.wait_empty(0.1)
+
+            if not any_alive():
+                break
 
             saved_put_counter = self.q_input.put_counter
 
@@ -293,6 +303,7 @@ class Parallelize:
 
                 busy_worker = find_worker(busy=True)
                 if busy_worker:
+                    time.sleep(0.1)
                     continue
 
             else:
