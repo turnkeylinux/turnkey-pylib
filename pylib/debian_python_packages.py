@@ -8,9 +8,14 @@ from os.path import *
 class SetupBase:
     @classmethod
     def setup(cls, **kwargs):
+        packages = cls.get_packages()
+        if not packages:
+            return
+
         d = {
-            'packages': cls.get_packages()
+            'packages': packages,
         }
+
         d.update(kwargs)
 
         _setup(**d)
