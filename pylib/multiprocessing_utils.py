@@ -95,6 +95,30 @@ class Deferred:
         return self.callable(*self.args, **self.kwargs)
 
 class Parallelize:
+    """
+
+    1) You pass a sequence of callables to Parallelize. In the most simple
+       usage case these will be functions, but they can also be callable
+       instances.
+
+    2) You get back a Parallelize instance which is another callable, which
+       you call with input arguments to queue a parallelized call in one of
+       the underlying processes.
+
+    3) The .wait() method waits for all queued execution to finish.
+
+    4) The .stop() method stops parallel execution. This can be after wait
+       has completed, or in the middle (e.g., handling an exception such as
+       Ctrl-C) in which case you get back a list of aborted inputs.
+
+    5) The .results is an array that holds the return values. A background
+       thread updates it in real-time as soon as the underlying functions in
+       various processes finish executing and return values. 
+       
+       After .wait() its length will be the same size as the number of calls
+       to the Parallelize instance.
+
+    """
     class Error(Exception):
         pass
 
