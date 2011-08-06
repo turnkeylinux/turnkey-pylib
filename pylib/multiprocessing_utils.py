@@ -280,15 +280,12 @@ class Parallelize:
 
         """
 
-        def find_worker(busy):
+        def find_busy_worker():
             for worker in self.workers:
                 if not worker.is_alive() or worker.is_stopped():
                     continue
 
-                if busy and worker.is_busy():
-                    return worker
-
-                if not busy and not worker.is_busy():
+                if worker.is_initialized() and worker.is_busy():
                     return worker
 
         def any_alive():
@@ -325,13 +322,13 @@ class Parallelize:
 
                     continue
 
-                busy_worker = find_worker(busy=True)
+                busy_worker = find_busy_worker()
                 if busy_worker:
                     time.sleep(0.1)
                     continue
 
             else:
-                worker = find_worker(busy=True)
+                worker = find_busy_worker()
                 if worker:
                     worker.wait()
                     continue
