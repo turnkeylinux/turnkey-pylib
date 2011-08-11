@@ -2,7 +2,8 @@ import re
 import os
 import sys
 from distutils.core import setup as _setup
-from executil import getoutput
+
+from executil import getoutput, ExecError
 from os.path import *
 
 class SetupBase:
@@ -74,13 +75,17 @@ class Setup(SetupBase):
 
     @staticmethod
     def get_version():
-        if not exists("debian/changelog"):
-            return None
+        try:
+            if not exists("debian/changelog"):
+                return getoutput("autoversion HEAD")
 
-        output = getoutput("dpkg-parsechangelog")
-        version = [ line.split(" ")[1]
-                    for line in output.split("\n")
-                    if line.startswith("Version:") ][0]
-        return version
+            output = getoutput("dpkg-parsechangelog")
+            version = [ line.split(" ")[1]
+                        for line in output.split("\n")
+                        if line.startswith("Version:") ][0]
+            return version
+
+        except ExecError:
+            return None
 
 setup = Setup.setup
