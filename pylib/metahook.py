@@ -1,5 +1,12 @@
-# Copyright (c) 2007 Liraz Siri <liraz@sterilesecurity.com> - all rights reserved
-# here be dragons
+# Copyright (c) 2007 Liraz Siri <liraz@turnkeylinux.org>
+#
+# This file is part of turnkey-pylib.
+#
+# turnkey-pylib is open source software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; either version 3 of the
+# License, or (at your option) any later version.
+
 """This module contains a generic magical mechanism for
 hooking into the methods of a derived class. The hook interface
 provides hooks into the following events:
