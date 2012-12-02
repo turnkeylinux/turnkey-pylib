@@ -1,0 +1,29 @@
+==================
+v0.4 Release Notes
+==================
+
+* lots of improvements and bugfixes
+
+* added the following modules
+
+    - temp
+    - sigignore
+    - debian_pylib
+    - ar
+    - debinfo
+    - debversion
+    - parsedate
+    - git
+    - hashstore
+    - chroot
+    - cliconf
+    - flock
+    - forked
+    - localmsg
+    - metahook
+    - paged
+    - fixedmap
+    - state
+    - tktimeout
+    - udevdb
+
