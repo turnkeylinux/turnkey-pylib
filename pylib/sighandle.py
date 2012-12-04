@@ -1,16 +1,17 @@
 from __future__ import with_statement
 import signal
 
-class sigignore:
-    def __init__(self, *sigs):
+class sighandle:
+    def __init__(self, handler, *sigs):
         self.sigs = sigs
+        self.handler = handler
         self.orig_handlers = None
 
-    def _ignore(self):
+    def _handle(self):
         self.orig_handlers = []
         for sig in self.sigs:
             self.orig_handlers.append(signal.getsignal(sig))
-            signal.signal(sig, signal.SIG_IGN)
+            signal.signal(sig, self.handler)
 
     def _restore(self):
         for (i, sig) in enumerate(self.sigs):
@@ -21,7 +22,7 @@ class sigignore:
     def __call__(self, method):
         def wrapper(*args, **kwargs):
 
-            self._ignore()
+            self._handle()
             try:
                 return method(*args, **kwargs)
             finally:
@@ -33,11 +34,15 @@ class sigignore:
         return wrapper
 
     def __enter__(self):
-        self._ignore()
+        self._handle()
         return self
 
     def __exit__(self, type, value, tb):
         self._restore()
+
+class sigignore(sighandle):
+    def __init__(self, *sigs):
+        sighandle.__init__(self, signal.SIG_IGN, *sigs)
 
 def test():
     import time
