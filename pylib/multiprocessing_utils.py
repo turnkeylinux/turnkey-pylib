@@ -1,4 +1,4 @@
-# Copyright (c) 2011 Liraz Siri <liraz@turnkeylinux.org>
+# Copyright (c) 2011-2012 Liraz Siri <liraz@turnkeylinux.org>
 # 
 # This file is part of turnkey-pylib.
 # 
@@ -10,9 +10,7 @@
 import signal
 
 import time
-from multiprocessing import Process, Event, Semaphore
-
-from multiprocessing import Semaphore, Condition, Value
+from multiprocessing import Process, Event, Condition, Value
 from multiprocessing.queues import Queue, Empty
 
 from threadloop import ThreadLoop
@@ -123,6 +121,9 @@ class Parallelize:
         pass
 
     class Worker(Process):
+        class Retry(Exception):
+            pass
+
         class Terminated(Exception):
             pass
 
@@ -166,9 +167,16 @@ class Parallelize:
                     idle.clear()
 
                     try:
-                        retval = executor(*input)
+                        if isinstance(input, tuple):
+                            retval = executor(*input)
+                        else:
+                            retval = executor(input)
                         q_output.put(retval)
-                    except:
+
+                    except cls.Retry:
+                        q_input.put(input)
+
+                    except: # uncaught exceptions destroy worker
                         if retval is UNDEFINED:
                             q_input.put(input)
 
@@ -402,7 +410,10 @@ class Parallelize:
         return aborted
 
     def __call__(self, *args):
-        self.q_input.put(args)
+        if len(args) == 1:
+            self.q_input.put(args[0])
+        else:
+            self.q_input.put(args)
 
     def __del__(self):
         self.stop()
