@@ -40,6 +40,19 @@ class sighandle:
     def __exit__(self, type, value, tb):
         self._restore()
 
+class dummy_sighandle:
+    def __init__(self, handler, *sigs):
+        pass
+
+    def __call__(self, method):
+        return method
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, tb):
+        pass
+
 class sigignore(sighandle):
     def __init__(self, *sigs):
         sighandle.__init__(self, signal.SIG_IGN, *sigs)
@@ -69,4 +82,4 @@ def test():
     print "after sleep"
 
 if __name__ == "__main__":
-    test()
+    test2()
