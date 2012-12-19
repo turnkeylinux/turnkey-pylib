@@ -1,0 +1,25 @@
+==================
+v0.4 Release Notes
+==================
+
+* Parallelize 
+
+  - support retry logic via magic exception
+
+  - allow jobs to manipulate their inputs (passed as an object
+    reference)
+
+  - support deferred executors: allows creation of worker instances to
+    be parallelized as well.
+
+  - added keepalive_spare support: this lets us keep around a spare
+    worker which may come in handy if a worker fails right at the end of
+    the job.
+
+  - added docstring to explain usage
+
+  - many bugfixes
+
+* Command
+
+  - added callback to wait method
