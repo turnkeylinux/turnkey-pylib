@@ -23,3 +23,28 @@ v0.4 Release Notes
 * Command
 
   - added callback to wait method
+
+* added the following modules
+
+    - temp
+    - sigignore
+    - debian_pylib
+    - ar
+    - debinfo
+    - debversion
+    - parsedate
+    - git
+    - hashstore
+    - chroot
+    - cliconf
+    - flock
+    - forked
+    - localmsg
+    - metahook
+    - paged
+    - fixedmap
+    - state
+    - tktimeout
+    - udevdb
+
+* lots of improvements and bugfixes
