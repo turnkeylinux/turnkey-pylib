@@ -242,7 +242,10 @@ class Command(object):
 
                 return
             
-            time.sleep(gracetime)
+            for i in range(gracetime):
+                if not self.running:
+                    return
+                time.sleep(1)
 
             if self.running:
                 os.kill(pid, signal.SIGKILL)
