@@ -329,17 +329,6 @@ def test(transparent=False):
         os.system("echo echo stderr 1>&2")
 
     print "--- 1:"
-    trap1 = UnitedStdTrap(transparent=transparent)
-    trap2 = UnitedStdTrap(transparent=transparent)
-    print "hello world"
-    sys.stdout.flush()
-    trap2.close()
-    print "trap2: " + trap2.std.read(),
-    sys.stdout.flush()
-    trap1.close(),
-    print "trap1: " + trap1.std.read(),
-
-    print "--- 2:"
     
     s = UnitedStdTrap(transparent=transparent)
     print "printing to united stdout..."
@@ -350,25 +339,14 @@ def test(transparent=False):
     print 'trapped united stdout and stderr: """%s"""' % s.std.read()
     print >> sys.stderr, "printing to stderr"
 
-    print "--- 3:"
-    s = None
-    s = UnitedStdTrap(transparent=transparent)
-    print "printing to united stdout..."
-    print >> sys.stderr, "printing to united stderr..."
-    sysprint()
-    s.close()
-
-    print 'trapped united stdout and stderr: """%s"""' % s.std.read()
-    print >> sys.stderr, "printing to stderr"
-
-    print "--- 4:"
+    print "--- 2:"
     
     s = StdTrap(transparent=transparent)
     s.close()
     print 'nothing in stdout: """%s"""' % s.stdout.read()
     print 'nothing in stderr: """%s"""' % s.stderr.read()
 
-    print "--- 5:"
+    print "--- 3:"
 
     s = StdTrap(transparent=transparent)
     print "printing to stdout..."
