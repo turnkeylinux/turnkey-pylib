@@ -39,7 +39,6 @@ UnitedStdTrap usage:
 import os
 import sys
 import pty
-import errno
 import select
 from StringIO import StringIO
 
@@ -94,7 +93,10 @@ class Sink:
         self.data += data
 
     def write(self):
-        written = os.write(self.fd, self.data)
+        try:
+            written = os.write(self.fd, self.data)
+        except:
+            return False
 
         self.data = self.data[written:]
         if not self.data:
@@ -188,15 +190,16 @@ class StdTrap:
                 sinks.append(Sink(orig_fd_dup))
 
             while True:
+                has_unwritten_data = True in [ sink.data != '' for sink in sinks ]
+
                 if not closed:
                     closed = signal_closed.isSet()
 
-                has_unwritten_data = True in [ sink.data != '' for sink in sinks ]
                 if closed and not has_unwritten_data:
                     break
 
                 try:
-                    events = poll.poll()
+                    events = poll.poll(1)
                 except select.error:
                     events = ()
 
@@ -329,8 +332,10 @@ def test(transparent=False):
     trap1 = UnitedStdTrap(transparent=transparent)
     trap2 = UnitedStdTrap(transparent=transparent)
     print "hello world"
+    sys.stdout.flush()
     trap2.close()
     print "trap2: " + trap2.std.read(),
+    sys.stdout.flush()
     trap1.close(),
     print "trap1: " + trap1.std.read(),
 
@@ -419,4 +424,3 @@ if __name__ == '__main__':
     test(True)
     test2()
     test3()
-     
