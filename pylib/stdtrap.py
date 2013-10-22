@@ -34,6 +34,24 @@ UnitedStdTrap usage:
 
     trapped_output = trap.std.read()
 
+UnitedStdTrap example with tee to logfile:
+
+    # also writes intercepted output to /tmp/log
+    logfile = file("/tmp/log", "w")
+    trap = UnitedStdTrap(transparent=True, tee=logfile)
+    try:
+        os.system("echo hello world")
+
+        for i in range(10):
+            print i
+    finally:
+        trap.close()
+
+    trapped_output = trap.std.read()
+    logfile.close()
+
+    assert file("/tmp/log").read() == trapped_output
+
 """
 
 import os
@@ -122,10 +140,10 @@ class StdTrap:
         2) If `transparent` is True then the data from the local pipe is
            redirected back to the original filedescriptor. 
 
-        3) If `files` are provided then data from the local pipe is written into those files.
+        3) If `tee` is provided then data from the local pipe is tee'ed into those file handles
         """
         @staticmethod
-        def _splice(spliced_fd, usepty, transparent, files=[]):
+        def _splice(spliced_fd, usepty, transparent, tee=[]):
             """splice into spliced_fd -> (splicer_pid, splicer_reader, orig_fd_dup)"""
                
             # duplicate the fd we want to trap for safe keeping
@@ -184,8 +202,8 @@ class StdTrap:
             r_fh = os.fdopen(r, "r", 0)
 
             sinks = [ Sink(outpipe.fileno()) ]
-            if files:
-                sinks += [ Sink(f) for f in files ]
+            if tee:
+                sinks += [ Sink(f) for f in tee ]
             if transparent:
                 sinks.append(Sink(orig_fd_dup))
 
@@ -230,8 +248,14 @@ class StdTrap:
 
             os._exit(0)
       
-        def __init__(self, spliced_fd, usepty=False, transparent=False, files=[]):
-            vals = self._splice(spliced_fd, usepty, transparent, files)
+        def __init__(self, spliced_fd, usepty=False, transparent=False, tee=[]):
+            if tee is None:
+                tee = []
+
+            if not isinstance(tee, list):
+                tee = [ tee ]
+
+            vals = self._splice(spliced_fd, usepty, transparent, tee)
             self.splicer_pid, self.splicer_reader, self.orig_fd_dup = vals
 
             self.spliced_fd = spliced_fd
@@ -251,7 +275,7 @@ class StdTrap:
 
             return captured
 
-    def __init__(self, stdout=True, stderr=True, usepty=False, transparent=False):
+    def __init__(self, stdout=True, stderr=True, usepty=False, transparent=False, stdout_tee=[], stderr_tee=[]):
 
         self.usepty = pty
         self.transparent = transparent
@@ -261,11 +285,11 @@ class StdTrap:
         
         if stdout:
             sys.stdout.flush()
-            self.stdout_splice = StdTrap.Splicer(sys.stdout.fileno(), usepty, transparent)
+            self.stdout_splice = StdTrap.Splicer(sys.stdout.fileno(), usepty, transparent, stdout_tee)
 
         if stderr:
             sys.stderr.flush()
-            self.stderr_splice = StdTrap.Splicer(sys.stderr.fileno(), usepty, transparent)
+            self.stderr_splice = StdTrap.Splicer(sys.stderr.fileno(), usepty, transparent, stderr_tee)
             
         self.stdout = None
         self.stderr = None
@@ -280,12 +304,12 @@ class StdTrap:
             self.stderr = StringIO(self.stderr_splice.close())
 
 class UnitedStdTrap(StdTrap):
-    def __init__(self, usepty=False, transparent=False, files=[]):
+    def __init__(self, usepty=False, transparent=False, tee=[]):
         self.usepty = usepty
         self.transparent = transparent
         
         sys.stdout.flush()
-        self.stdout_splice = self.Splicer(sys.stdout.fileno(), usepty, transparent, files)
+        self.stdout_splice = self.Splicer(sys.stdout.fileno(), usepty, transparent, tee)
 
         sys.stderr.flush()
         self.stderr_dupfd = os.dup(sys.stderr.fileno())
@@ -323,82 +347,115 @@ def getoutput(callback, args=()):
 
     return trap.std.read()
 
-def test(transparent=False):
-    def sysprint():
-        os.system("echo echo stdout")
-        os.system("echo echo stderr 1>&2")
-
-    print "--- 1:"
-    
-    s = UnitedStdTrap(transparent=transparent)
-    print "printing to united stdout..."
-    print >> sys.stderr, "printing to united stderr..."
-    sysprint()
-    s.close()
-
-    print 'trapped united stdout and stderr: """%s"""' % s.std.read()
-    print >> sys.stderr, "printing to stderr"
-
-    print "--- 2:"
-    
-    s = StdTrap(transparent=transparent)
-    s.close()
-    print 'nothing in stdout: """%s"""' % s.stdout.read()
-    print 'nothing in stderr: """%s"""' % s.stderr.read()
-
-    print "--- 3:"
-
-    s = StdTrap(transparent=transparent)
-    print "printing to stdout..."
-    print >> sys.stderr, "printing to stderr..."
-    sysprint()
-    s.close()
-
-    print 'trapped stdout: """%s"""' % s.stdout.read()
-    print >> sys.stderr, 'trapped stderr: """%s"""' % s.stderr.read()
-
-
-def test2():
-    trap = StdTrap(stdout=True, stderr=True, transparent=False)
-
-    try:
-        for i in range(1000):
-            print "A" * 70
-            sys.stdout.flush()
-            print >> sys.stderr, "B" * 70
-            sys.stderr.flush()
-            
-    finally:
-        trap.close()
-
-    assert len(trap.stdout.read()) == 71000
-    assert len(trap.stderr.read()) == 71000
-
-def test3():
-    trap = UnitedStdTrap(transparent=True)
-    try:
-        for i in range(10):
-            print "A" * 70
-            sys.stdout.flush()
-            print >> sys.stderr, "B" * 70
-            sys.stderr.flush()
-    finally:
-        trap.close()
-
-    print len(trap.stdout.read())
-
-def test4():
-    import time
-    s = StdTrap(transparent=True)
-    s.close()
-    print 'nothing in stdout: """%s"""' % s.stdout.read()
-    print 'nothing in stderr: """%s"""' % s.stderr.read()
-
 if __name__ == '__main__':
-    test(False)
-    print
-    print "=== TRANSPARENT MODE ==="
-    print
-    test(True)
-    test2()
-    test3()
+    def test(transparent=False):
+        def sysprint():
+            os.system("echo echo stdout")
+            os.system("echo echo stderr 1>&2")
+
+        print "--- 1:"
+        
+        s = UnitedStdTrap(transparent=transparent)
+        print "printing to united stdout..."
+        print >> sys.stderr, "printing to united stderr..."
+        sysprint()
+        s.close()
+
+        print 'trapped united stdout and stderr: """%s"""' % s.std.read()
+        print >> sys.stderr, "printing to stderr"
+
+        print "--- 2:"
+        
+        s = StdTrap(transparent=transparent)
+        s.close()
+        print 'nothing in stdout: """%s"""' % s.stdout.read()
+        print 'nothing in stderr: """%s"""' % s.stderr.read()
+
+        print "--- 3:"
+
+        s = StdTrap(transparent=transparent)
+        print "printing to stdout..."
+        print >> sys.stderr, "printing to stderr..."
+        sysprint()
+        s.close()
+
+        print 'trapped stdout: """%s"""' % s.stdout.read()
+        print >> sys.stderr, 'trapped stderr: """%s"""' % s.stderr.read()
+
+
+    def test2():
+        trap = StdTrap(stdout=True, stderr=True, transparent=False)
+
+        try:
+            for i in range(1000):
+                print "A" * 70
+                sys.stdout.flush()
+                print >> sys.stderr, "B" * 70
+                sys.stderr.flush()
+                
+        finally:
+            trap.close()
+
+        assert len(trap.stdout.read()) == 71000
+        assert len(trap.stderr.read()) == 71000
+
+    def test3():
+        trap = UnitedStdTrap(transparent=True)
+        try:
+            for i in range(10):
+                print "A" * 70
+                sys.stdout.flush()
+                print >> sys.stderr, "B" * 70
+                sys.stderr.flush()
+        finally:
+            trap.close()
+
+        print len(trap.stdout.read())
+
+    def test4():
+        import time
+        s = StdTrap(transparent=True)
+        s.close()
+        print 'nothing in stdout: """%s"""' % s.stdout.read()
+        print 'nothing in stderr: """%s"""' % s.stderr.read()
+
+    def test_tee():
+        logfile = file("/tmp/log", "w")
+
+        trap = StdTrap(transparent=True, stdout_tee=logfile)
+        try:
+            os.system("echo hello world")
+            for i in range(10):
+                print i
+        finally:
+            trap.close()
+
+        trapped_output = trap.stdout.read()
+        logfile.close()
+
+        assert file("/tmp/log").read() == trapped_output
+
+    def test_united_tee():
+        logfile = file("/tmp/log", "w")
+
+        trap = UnitedStdTrap(transparent=True, tee=logfile)
+        try:
+            os.system("echo hello world")
+            for i in range(10):
+                print i
+        finally:
+            trap.close()
+
+        trapped_output = trap.std.read()
+        logfile.close()
+
+        assert file("/tmp/log").read() == trapped_output
+
+    #test(False)
+    #print
+    #print "=== TRANSPARENT MODE ==="
+    #print
+    #test(True)
+    #test2()
+    test_united_tee()
+    test_tee()
