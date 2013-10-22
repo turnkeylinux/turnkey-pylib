@@ -117,8 +117,8 @@ class StdTrap:
             os.dup2(w, spliced_fd)
             os.close(w)
             
-            spliced_fd_reader = os.fdopen(r, "r", 0)
-            splicer_pipe = Pipe()
+            r_fh = os.fdopen(r, "r", 0)
+            outpipe = Pipe()
 
             # the child process uses this to signal the parent to continue
             # the parent uses this to signal the child to close
@@ -128,25 +128,25 @@ class StdTrap:
             if splicer_pid:
                 signal_continue = signal_event
                 
-                splicer_pipe.w.close()
-                spliced_fd_reader.close()
+                outpipe.w.close()
+                r_fh.close()
 
                 while not signal_continue.isSet():
                     pass
 
-                return splicer_pid, splicer_pipe.r, orig_fd_dup
+                return splicer_pid, outpipe.r, orig_fd_dup
             else:
                 signal_closed = signal_event
                 
                 # child splicer
-                splicer_pipe.r.close()
+                outpipe.r.close()
 
                 # we don't need this copy of spliced_fd
                 # keeping it open will prevent it from closing
                 os.close(spliced_fd)
 
-                set_blocking(spliced_fd_reader.fileno(), False)
-                set_blocking(splicer_pipe.w.fileno(), False)
+                set_blocking(r_fh.fileno(), False)
+                set_blocking(outpipe.w.fileno(), False)
                 
                 def os_write_all(fd, data):
                     while data:
@@ -157,7 +157,7 @@ class StdTrap:
                         
 
                 poll = select.poll()
-                poll.register(spliced_fd_reader, select.POLLIN | select.POLLHUP)
+                poll.register(r_fh, select.POLLIN | select.POLLHUP)
                 
                 buf = ""
                 
@@ -177,13 +177,13 @@ class StdTrap:
                         events = ()
 
                     for fd, mask in events:
-                        if fd == spliced_fd_reader.fileno():
+                        if fd == r_fh.fileno():
                             if mask & select.POLLIN:
 
-                                data = spliced_fd_reader.read()
+                                data = r_fh.read()
                                 
                                 buf += data
-                                poll.register(splicer_pipe.w)
+                                poll.register(outpipe.w)
                                 
                                 if transparent:
                                     # if our dupfd file descriptor has been closed
@@ -200,12 +200,12 @@ class StdTrap:
                                 closed = True
                                 poll.unregister(fd)
                                 
-                        elif fd == splicer_pipe.w.fileno():
+                        elif fd == outpipe.w.fileno():
                             if mask & select.POLLOUT:
-                                written = os.write(splicer_pipe.w.fileno(), buf)
+                                written = os.write(outpipe.w.fileno(), buf)
                                 buf = buf[written:]
                                 if not buf:
-                                    poll.unregister(splicer_pipe.w)
+                                    poll.unregister(outpipe.w)
 
                 os._exit(0)
           
