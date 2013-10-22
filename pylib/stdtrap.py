@@ -1,5 +1,5 @@
 # 
-# Copyright (c) 2007-2010 Liraz Siri <liraz@turnkeylinux.org>
+# Copyright (c) 2007-2013 Liraz Siri <liraz@turnkeylinux.org>
 # 
 # This file is part of turnkey-pylib.
 # 
@@ -82,6 +82,22 @@ def set_blocking(fd, block):
         arg =~ arg
     fcntl.fcntl(fd, fcntl.F_SETFL, arg)
 
+class Sink:
+    def __init__(self, fd):
+        self.fd = fd
+        self.data = ''
+
+    def buffer(self, data):
+        self.data += data
+
+    def write(self):
+        written = os.write(self.fd, self.data)
+
+        self.data = self.data[written:]
+        if not self.data:
+            return True
+        return False
+
 class StdTrap:
     class Splicer:
         """Inside the _splice method, stdout is intercepted at
@@ -149,30 +165,24 @@ class StdTrap:
             set_blocking(r, False)
             set_blocking(outpipe.fileno(), False)
             
-            def os_write_all(fd, data):
-                while data:
-                    len = os.write(fd, data)
-                    if len < 0:
-                        raise Error("os.write error")
-                    data = data[len:]
-                    
-
             poll = select.poll()
             poll.register(r, select.POLLIN | select.POLLHUP)
-            
-            buf = ''
             
             closed = False
             SignalEvent.send(os.getppid())
             
-            buf = ''
-            
             r_fh = os.fdopen(r, "r", 0)
+
+            sinks = [ Sink(outpipe.fileno()) ]
+            if transparent:
+                sinks.append(Sink(orig_fd_dup))
+
             while True:
                 if not closed:
                     closed = signal_closed.isSet()
 
-                if closed and not buf:
+                has_unwritten_data = True in [ sink.data != '' for sink in sinks ]
+                if closed and not has_unwritten_data:
                     break
 
                 try:
@@ -185,31 +195,25 @@ class StdTrap:
                         if mask & select.POLLIN:
 
                             data = r_fh.read()
-                            buf += data
-                            
-                            poll.register(outpipe)
-                            
-                            if transparent:
-                                # if our dupfd file descriptor has been closed
-                                # redirect output to the originally trapped fd
-                                try:
-                                    os_write_all(orig_fd_dup, data)
-                                except OSError, e:
-                                    if e[0] == errno.EBADF:
-                                        os_write_all(spliced_fd, data)
-                                    else:
-                                        raise
+                            for sink in sinks:
+                                sink.buffer(data)
+                                poll.register(sink.fd)
+
+                            poll.register(outpipe.fileno(), select.POLLOUT)
 
                         if mask & select.POLLHUP:
                             closed = True
                             poll.unregister(fd)
                             
-                    elif fd == outpipe.fileno():
-                        if mask & select.POLLOUT:
-                            written = os.write(outpipe.fileno(), buf)
-                            buf = buf[written:]
-                            if not buf:
-                                poll.unregister(outpipe)
+                    else:
+                        for sink in sinks:
+                            if sink.fd != fd:
+                                continue
+
+                            if mask & select.POLLOUT:
+                                wrote_all = sink.write()
+                                if wrote_all:
+                                    poll.unregister(sink.fd)
 
             os._exit(0)
       
