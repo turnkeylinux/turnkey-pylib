@@ -117,7 +117,6 @@ class StdTrap:
             os.dup2(w, spliced_fd)
             os.close(w)
             
-            r_fh = os.fdopen(r, "r", 0)
             outpipe = Pipe()
 
             # the child process uses this to signal the parent to continue
@@ -129,13 +128,15 @@ class StdTrap:
                 signal_continue = signal_event
                 
                 outpipe.w.close()
-                r_fh.close()
+                os.close(r)
 
                 while not signal_continue.isSet():
                     pass
 
                 return splicer_pid, outpipe.r, orig_fd_dup
+
             else:
+
                 signal_closed = signal_event
                 
                 # child splicer
@@ -145,7 +146,7 @@ class StdTrap:
                 # keeping it open will prevent it from closing
                 os.close(spliced_fd)
 
-                set_blocking(r_fh.fileno(), False)
+                set_blocking(r, False)
                 set_blocking(outpipe.w.fileno(), False)
                 
                 def os_write_all(fd, data):
@@ -157,13 +158,14 @@ class StdTrap:
                         
 
                 poll = select.poll()
-                poll.register(r_fh, select.POLLIN | select.POLLHUP)
+                poll.register(r, select.POLLIN | select.POLLHUP)
                 
-                buf = ""
+                buf = ''
                 
                 closed = False
                 SignalEvent.send(os.getppid())
                 
+                r_fh = os.fdopen(r, "r", 0)
                 while True:
                     if not closed:
                         closed = signal_closed.isSet()
@@ -177,7 +179,7 @@ class StdTrap:
                         events = ()
 
                     for fd, mask in events:
-                        if fd == r_fh.fileno():
+                        if fd == r:
                             if mask & select.POLLIN:
 
                                 data = r_fh.read()
@@ -208,7 +210,7 @@ class StdTrap:
                                     poll.unregister(outpipe.w)
 
                 os._exit(0)
-          
+      
         def __init__(self, spliced_fd, usepty=False, transparent=False):
             vals = self._splice(spliced_fd, usepty, transparent)
             self.splicer_pid, self.splicer_reader, self.orig_fd_dup = vals
