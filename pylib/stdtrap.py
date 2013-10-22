@@ -135,81 +135,83 @@ class StdTrap:
 
                 return splicer_pid, outpipe.r, orig_fd_dup
 
-            else:
+            signal_closed = signal_event
+            
+            # child splicer
+            outpipe.r.close()
 
-                signal_closed = signal_event
-                
-                # child splicer
-                outpipe.r.close()
+            outpipe = outpipe.w
 
-                # we don't need this copy of spliced_fd
-                # keeping it open will prevent it from closing
-                os.close(spliced_fd)
+            # we don't need this copy of spliced_fd
+            # keeping it open will prevent it from closing
+            os.close(spliced_fd)
 
-                set_blocking(r, False)
-                set_blocking(outpipe.w.fileno(), False)
-                
-                def os_write_all(fd, data):
-                    while data:
-                        len = os.write(fd, data)
-                        if len < 0:
-                            raise Error("os.write error")
-                        data = data[len:]
-                        
+            set_blocking(r, False)
+            set_blocking(outpipe.fileno(), False)
+            
+            def os_write_all(fd, data):
+                while data:
+                    len = os.write(fd, data)
+                    if len < 0:
+                        raise Error("os.write error")
+                    data = data[len:]
+                    
 
-                poll = select.poll()
-                poll.register(r, select.POLLIN | select.POLLHUP)
-                
-                buf = ''
-                
-                closed = False
-                SignalEvent.send(os.getppid())
-                
-                r_fh = os.fdopen(r, "r", 0)
-                while True:
-                    if not closed:
-                        closed = signal_closed.isSet()
+            poll = select.poll()
+            poll.register(r, select.POLLIN | select.POLLHUP)
+            
+            buf = ''
+            
+            closed = False
+            SignalEvent.send(os.getppid())
+            
+            buf = ''
+            
+            r_fh = os.fdopen(r, "r", 0)
+            while True:
+                if not closed:
+                    closed = signal_closed.isSet()
 
-                    if closed and not buf:
-                        break
+                if closed and not buf:
+                    break
 
-                    try:
-                        events = poll.poll()
-                    except select.error:
-                        events = ()
+                try:
+                    events = poll.poll()
+                except select.error:
+                    events = ()
 
-                    for fd, mask in events:
-                        if fd == r:
-                            if mask & select.POLLIN:
+                for fd, mask in events:
+                    if fd == r:
+                        if mask & select.POLLIN:
 
-                                data = r_fh.read()
-                                
-                                buf += data
-                                poll.register(outpipe.w)
-                                
-                                if transparent:
-                                    # if our dupfd file descriptor has been closed
-                                    # redirect output to the originally trapped fd
-                                    try:
-                                        os_write_all(orig_fd_dup, data)
-                                    except OSError, e:
-                                        if e[0] == errno.EBADF:
-                                            os_write_all(spliced_fd, data)
-                                        else:
-                                            raise
+                            data = r_fh.read()
+                            buf += data
+                            
+                            poll.register(outpipe)
+                            
+                            if transparent:
+                                # if our dupfd file descriptor has been closed
+                                # redirect output to the originally trapped fd
+                                try:
+                                    os_write_all(orig_fd_dup, data)
+                                except OSError, e:
+                                    if e[0] == errno.EBADF:
+                                        os_write_all(spliced_fd, data)
+                                    else:
+                                        raise
 
-                            if mask & select.POLLHUP:
-                                closed = True
-                                poll.unregister(fd)
-                                
-                        elif fd == outpipe.w.fileno():
-                            if mask & select.POLLOUT:
-                                written = os.write(outpipe.w.fileno(), buf)
-                                buf = buf[written:]
-                                if not buf:
-                                    poll.unregister(outpipe.w)
+                        if mask & select.POLLHUP:
+                            closed = True
+                            poll.unregister(fd)
+                            
+                    elif fd == outpipe.fileno():
+                        if mask & select.POLLOUT:
+                            written = os.write(outpipe.fileno(), buf)
+                            buf = buf[written:]
+                            if not buf:
+                                poll.unregister(outpipe)
 
-                os._exit(0)
+            os._exit(0)
       
         def __init__(self, spliced_fd, usepty=False, transparent=False):
             vals = self._splice(spliced_fd, usepty, transparent)
