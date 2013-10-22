@@ -84,6 +84,9 @@ def set_blocking(fd, block):
 
 class Sink:
     def __init__(self, fd):
+        if hasattr(fd, 'fileno'):
+            fd = fd.fileno()
+
         self.fd = fd
         self.data = ''
 
@@ -105,17 +108,22 @@ class StdTrap:
         whenever someone writes to stdout, we can read it out the
         other end of the pipe.
 
-        The problem is that if we don't suck data out of this pipe
-        then eventually if enough data is written to it the process
-        writing to stdout will be blocked by the kernel, which means
-        we'll be limited to capturing up to 65K of output and after
-        that anything else will hang. So to solve that we create a
-        splicer subprocess to get around the OS's 65K buffering
-        limitation. The splicer subprocess's job is to suck the pipe
-        into a local buffer and spit it back out back to the parent
-        process through a second pipe created for this purpose"""
+        The problem is that if we don't suck data out of this pipe then
+        eventually if enough data is written to it the process writing to
+        stdout will be blocked by the kernel, which means we'll be limited to
+        capturing up to 65K of output and after that anything else will hang.
+        So to solve that we create a splicer subprocess to get around the OS's
+        65K buffering limitation. The splicer subprocess's job is to suck the
+        pipe into a local buffer and spit it back out to:
+        
+        1) the parent process through a second pipe created for this purpose.
+        2) If `transparent` is True then the data from the local pipe is
+           redirected back to the original filedescriptor. 
+
+        3) If `files` are provided then data from the local pipe is written into those files.
+        """
         @staticmethod
-        def _splice(spliced_fd, usepty, transparent):
+        def _splice(spliced_fd, usepty, transparent, files=[]):
             """splice into spliced_fd -> (splicer_pid, splicer_reader, orig_fd_dup)"""
                
             # duplicate the fd we want to trap for safe keeping
@@ -174,6 +182,8 @@ class StdTrap:
             r_fh = os.fdopen(r, "r", 0)
 
             sinks = [ Sink(outpipe.fileno()) ]
+            if files:
+                sinks += [ Sink(f) for f in files ]
             if transparent:
                 sinks.append(Sink(orig_fd_dup))
 
@@ -217,8 +227,8 @@ class StdTrap:
 
             os._exit(0)
       
-        def __init__(self, spliced_fd, usepty=False, transparent=False):
-            vals = self._splice(spliced_fd, usepty, transparent)
+        def __init__(self, spliced_fd, usepty=False, transparent=False, files=[]):
+            vals = self._splice(spliced_fd, usepty, transparent, files)
             self.splicer_pid, self.splicer_reader, self.orig_fd_dup = vals
 
             self.spliced_fd = spliced_fd
@@ -239,6 +249,7 @@ class StdTrap:
             return captured
 
     def __init__(self, stdout=True, stderr=True, usepty=False, transparent=False):
+
         self.usepty = pty
         self.transparent = transparent
 
@@ -266,12 +277,12 @@ class StdTrap:
             self.stderr = StringIO(self.stderr_splice.close())
 
 class UnitedStdTrap(StdTrap):
-    def __init__(self, usepty=False, transparent=False):
+    def __init__(self, usepty=False, transparent=False, files=[]):
         self.usepty = usepty
         self.transparent = transparent
         
         sys.stdout.flush()
-        self.stdout_splice = self.Splicer(sys.stdout.fileno(), usepty, transparent)
+        self.stdout_splice = self.Splicer(sys.stdout.fileno(), usepty, transparent, files)
 
         sys.stderr.flush()
         self.stderr_dupfd = os.dup(sys.stderr.fileno())
