@@ -1,0 +1,11 @@
+==================
+v0.5 Release Notes
+==================
+
+* bugfixes:
+
+  - Command: terminate shouldn't wait gracetime if process dies sooner
+  - Stdtrap: prevent deadlock from rare race condition
+
+* stdtrap: added tee functionality, which allows streaming trapped data
+  into logfile[s]
