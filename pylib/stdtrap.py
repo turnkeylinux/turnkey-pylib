@@ -84,6 +84,159 @@ import signal
 class Error(Exception):
     pass
 
+class Splicer:
+    """Inside the _splice method, stdout is intercepted at
+    the file descriptor level by redirecting it to a pipe. Now
+    whenever someone writes to stdout, we can read it out the
+    other end of the pipe.
+
+    The problem is that if we don't suck data out of this pipe then
+    eventually if enough data is written to it the process writing to
+    stdout will be blocked by the kernel, which means we'll be limited to
+    capturing up to 65K of output and after that anything else will hang.
+    So to solve that we create a splicer subprocess to get around the OS's
+    65K buffering limitation. The splicer subprocess's job is to suck the
+    pipe into a local buffer and spit it back out to:
+    
+    1) the parent process through a second pipe created for this purpose.
+    2) If `transparent` is True then the data from the local pipe is
+       redirected back to the original filedescriptor. 
+
+    3) If `tee` is provided then data from the local pipe is tee'ed into those file handles
+    """
+    @staticmethod
+    def _splice(spliced_fd, usepty, transparent, tee=[]):
+        """splice into spliced_fd -> (splicer_pid, splicer_reader, orig_fd_dup)"""
+           
+        # duplicate the fd we want to trap for safe keeping
+        orig_fd_dup = os.dup(spliced_fd)
+
+        # create a bi-directional pipe/pty
+        # data written to w can be read from r
+        if usepty:
+            r, w = os.openpty()
+        else:
+            r, w = os.pipe()
+
+        # splice into spliced_fd by overwriting it
+        # with the newly created `w` which we can read from with `r`
+        os.dup2(w, spliced_fd)
+        os.close(w)
+        
+        outpipe = Pipe()
+
+        # the child process uses this to signal the parent to continue
+        # the parent uses this to signal the child to close
+        signal_event = SignalEvent()
+        
+        splicer_pid = os.fork()
+        if splicer_pid:
+            signal_continue = signal_event
+            
+            outpipe.w.close()
+            os.close(r)
+
+            while not signal_continue.isSet():
+                pass
+
+            return splicer_pid, outpipe.r, orig_fd_dup
+
+        signal_closed = signal_event
+        
+        # child splicer
+        outpipe.r.close()
+
+        outpipe = outpipe.w
+
+        # we don't need this copy of spliced_fd
+        # keeping it open will prevent it from closing
+        os.close(spliced_fd)
+
+        set_blocking(r, False)
+        set_blocking(outpipe.fileno(), False)
+        
+        poll = select.poll()
+        poll.register(r, select.POLLIN | select.POLLHUP)
+        
+        closed = False
+        SignalEvent.send(os.getppid())
+        
+        r_fh = os.fdopen(r, "r", 0)
+
+        sinks = [ Sink(outpipe.fileno()) ]
+        if tee:
+            sinks += [ Sink(f) for f in tee ]
+        if transparent:
+            sinks.append(Sink(orig_fd_dup))
+
+        while True:
+            has_unwritten_data = True in [ sink.data != '' for sink in sinks ]
+
+            if not closed:
+                closed = signal_closed.isSet()
+
+            if closed and not has_unwritten_data:
+                break
+
+            try:
+                events = poll.poll(1)
+            except select.error:
+                events = ()
+
+            for fd, mask in events:
+                if fd == r:
+                    if mask & select.POLLIN:
+
+                        data = r_fh.read()
+                        for sink in sinks:
+                            sink.buffer(data)
+                            poll.register(sink.fd)
+
+                        poll.register(outpipe.fileno(), select.POLLOUT)
+
+                    if mask & select.POLLHUP:
+                        closed = True
+                        poll.unregister(fd)
+                        
+                else:
+                    for sink in sinks:
+                        if sink.fd != fd:
+                            continue
+
+                        if mask & select.POLLOUT:
+                            wrote_all = sink.write()
+                            if wrote_all:
+                                poll.unregister(sink.fd)
+
+        os._exit(0)
+  
+    def __init__(self, spliced_fd, usepty=False, transparent=False, tee=[]):
+        if tee is None:
+            tee = []
+
+        if not isinstance(tee, list):
+            tee = [ tee ]
+
+        vals = self._splice(spliced_fd, usepty, transparent, tee)
+        self.splicer_pid, self.splicer_reader, self.orig_fd_dup = vals
+
+        self.spliced_fd = spliced_fd
+
+    def close(self):
+        """closes the splice -> captured output"""
+        # dupping orig_fd_dup -> spliced_fd does two things:
+        # 1) it closes spliced_fd - signals our splicer process to stop reading
+        # 2) it overwrites spliced_fd with a dup of the unspliced original fd
+        os.dup2(self.orig_fd_dup, self.spliced_fd)
+        SignalEvent.send(self.splicer_pid)
+        
+        os.close(self.orig_fd_dup)
+
+        captured = self.splicer_reader.read()
+        os.waitpid(self.splicer_pid, 0)
+
+        return captured
+
 class SignalEvent:
     SIG = signal.SIGUSR1
     
@@ -141,159 +294,6 @@ class Sink:
         return False
 
 class StdTrap:
-    class Splicer:
-        """Inside the _splice method, stdout is intercepted at
-        the file descriptor level by redirecting it to a pipe. Now
-        whenever someone writes to stdout, we can read it out the
-        other end of the pipe.
-
-        The problem is that if we don't suck data out of this pipe then
-        eventually if enough data is written to it the process writing to
-        stdout will be blocked by the kernel, which means we'll be limited to
-        capturing up to 65K of output and after that anything else will hang.
-        So to solve that we create a splicer subprocess to get around the OS's
-        65K buffering limitation. The splicer subprocess's job is to suck the
-        pipe into a local buffer and spit it back out to:
-        
-        1) the parent process through a second pipe created for this purpose.
-        2) If `transparent` is True then the data from the local pipe is
-           redirected back to the original filedescriptor. 
-
-        3) If `tee` is provided then data from the local pipe is tee'ed into those file handles
-        """
-        @staticmethod
-        def _splice(spliced_fd, usepty, transparent, tee=[]):
-            """splice into spliced_fd -> (splicer_pid, splicer_reader, orig_fd_dup)"""
-               
-            # duplicate the fd we want to trap for safe keeping
-            orig_fd_dup = os.dup(spliced_fd)
-
-            # create a bi-directional pipe/pty
-            # data written to w can be read from r
-            if usepty:
-                r, w = os.openpty()
-            else:
-                r, w = os.pipe()
-
-            # splice into spliced_fd by overwriting it
-            # with the newly created `w` which we can read from with `r`
-            os.dup2(w, spliced_fd)
-            os.close(w)
-            
-            outpipe = Pipe()
-
-            # the child process uses this to signal the parent to continue
-            # the parent uses this to signal the child to close
-            signal_event = SignalEvent()
-            
-            splicer_pid = os.fork()
-            if splicer_pid:
-                signal_continue = signal_event
-                
-                outpipe.w.close()
-                os.close(r)
-
-                while not signal_continue.isSet():
-                    pass
-
-                return splicer_pid, outpipe.r, orig_fd_dup
-
-            signal_closed = signal_event
-            
-            # child splicer
-            outpipe.r.close()
-
-            outpipe = outpipe.w
-
-            # we don't need this copy of spliced_fd
-            # keeping it open will prevent it from closing
-            os.close(spliced_fd)
-
-            set_blocking(r, False)
-            set_blocking(outpipe.fileno(), False)
-            
-            poll = select.poll()
-            poll.register(r, select.POLLIN | select.POLLHUP)
-            
-            closed = False
-            SignalEvent.send(os.getppid())
-            
-            r_fh = os.fdopen(r, "r", 0)
-
-            sinks = [ Sink(outpipe.fileno()) ]
-            if tee:
-                sinks += [ Sink(f) for f in tee ]
-            if transparent:
-                sinks.append(Sink(orig_fd_dup))
-
-            while True:
-                has_unwritten_data = True in [ sink.data != '' for sink in sinks ]
-
-                if not closed:
-                    closed = signal_closed.isSet()
-
-                if closed and not has_unwritten_data:
-                    break
-
-                try:
-                    events = poll.poll(1)
-                except select.error:
-                    events = ()
-
-                for fd, mask in events:
-                    if fd == r:
-                        if mask & select.POLLIN:
-
-                            data = r_fh.read()
-                            for sink in sinks:
-                                sink.buffer(data)
-                                poll.register(sink.fd)
-
-                            poll.register(outpipe.fileno(), select.POLLOUT)
-
-                        if mask & select.POLLHUP:
-                            closed = True
-                            poll.unregister(fd)
-                            
-                    else:
-                        for sink in sinks:
-                            if sink.fd != fd:
-                                continue
-
-                            if mask & select.POLLOUT:
-                                wrote_all = sink.write()
-                                if wrote_all:
-                                    poll.unregister(sink.fd)
-
-            os._exit(0)
-      
-        def __init__(self, spliced_fd, usepty=False, transparent=False, tee=[]):
-            if tee is None:
-                tee = []
-
-            if not isinstance(tee, list):
-                tee = [ tee ]
-
-            vals = self._splice(spliced_fd, usepty, transparent, tee)
-            self.splicer_pid, self.splicer_reader, self.orig_fd_dup = vals
-
-            self.spliced_fd = spliced_fd
-
-        def close(self):
-            """closes the splice -> captured output"""
-            # dupping orig_fd_dup -> spliced_fd does two things:
-            # 1) it closes spliced_fd - signals our splicer process to stop reading
-            # 2) it overwrites spliced_fd with a dup of the unspliced original fd
-            os.dup2(self.orig_fd_dup, self.spliced_fd)
-            SignalEvent.send(self.splicer_pid)
-            
-            os.close(self.orig_fd_dup)
-
-            captured = self.splicer_reader.read()
-            os.waitpid(self.splicer_pid, 0)
-
-            return captured
-
     def __init__(self, stdout=True, stderr=True, usepty=False, transparent=False, stdout_tee=[], stderr_tee=[]):
 
         self.usepty = pty
@@ -304,11 +304,11 @@ class StdTrap:
         
         if stdout:
             sys.stdout.flush()
-            self.stdout_splice = StdTrap.Splicer(sys.stdout.fileno(), usepty, transparent, stdout_tee)
+            self.stdout_splice = Splicer(sys.stdout.fileno(), usepty, transparent, stdout_tee)
 
         if stderr:
             sys.stderr.flush()
-            self.stderr_splice = StdTrap.Splicer(sys.stderr.fileno(), usepty, transparent, stderr_tee)
+            self.stderr_splice = Splicer(sys.stderr.fileno(), usepty, transparent, stderr_tee)
             
         self.stdout = None
         self.stderr = None
@@ -322,13 +322,13 @@ class StdTrap:
             sys.stderr.flush()
             self.stderr = StringIO(self.stderr_splice.close())
 
-class UnitedStdTrap(StdTrap):
+class UnitedStdTrap:
     def __init__(self, usepty=False, transparent=False, tee=[]):
         self.usepty = usepty
         self.transparent = transparent
         
         sys.stdout.flush()
-        self.stdout_splice = self.Splicer(sys.stdout.fileno(), usepty, transparent, tee)
+        self.stdout_splice = Splicer(sys.stdout.fileno(), usepty, transparent, tee)
 
         sys.stderr.flush()
         self.stderr_dupfd = os.dup(sys.stderr.fileno())
@@ -470,12 +470,12 @@ def tests():
 
         assert file("/tmp/log").read() == trapped_output
 
-    #test(False)
-    #print
-    #print "=== TRANSPARENT MODE ==="
-    #print
-    #test(True)
-    #test2()
+    test(False)
+    print
+    print "=== TRANSPARENT MODE ==="
+    print
+    test(True)
+    test2()
     test_united_tee()
     test_tee()
 
