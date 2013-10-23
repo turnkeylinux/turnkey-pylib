@@ -34,8 +34,27 @@ UnitedStdTrap usage:
 
     trapped_output = trap.std.read()
 
-UnitedStdTrap example with tee to logfile:
+UnitedStdTrap examples with tee to logfile:
 
+    ## example 1: traps output and writes it to session.log ##
+
+    import os
+    from stdtrap import UnitedStdTrap
+
+    # in another session, you can shadow this shell session in real-time::
+    #
+    #     tail -f session.log
+    #
+    fh = file("session.log", "w")
+    trap = UnitedStdTrap(usepty=True, transparent=True, tee=fh)
+    try:
+        os.system("/bin/bash")
+    finally:
+        trap.close()
+        fh.close()
+
+    ## example 2: traps output and writes it to stdout and /tmp/log ##
+    
     # also writes intercepted output to /tmp/log
     logfile = file("/tmp/log", "w")
     trap = UnitedStdTrap(transparent=True, tee=logfile)
@@ -347,7 +366,7 @@ def getoutput(callback, args=()):
 
     return trap.std.read()
 
-if __name__ == '__main__':
+def tests():
     def test(transparent=False):
         def sysprint():
             os.system("echo echo stdout")
@@ -459,3 +478,80 @@ if __name__ == '__main__':
     #test2()
     test_united_tee()
     test_tee()
+
+def usage(e=None):
+    if e:
+        print >> sys.stderr, "error: " + str(e)
+
+    print >> sys.stderr, """\
+python stdtrap.py [ -options ] path/to/file [ command ]
+python stdtrap.py [ -options ] "|shell command" [ command ]
+
+Execute command while sending trapped output to output-destination, and selectively logging it
+
+Arguments:
+    
+    command          Shell command to execute, if none provided, execute shell.
+
+Options:
+    -q --quiet       Don't trap stdout/stderr transparently
+    -p --pty         Use a pty (psuedo-terminal) instead of a pipe to trap output
+
+Example::
+
+    # execute shell and redirect output to ~/shell.log in real-time
+    python stdtrap.py --pty /tmp/shell.log
+
+    # does the same thing as "ls -la / > /tmp/ls.log"
+    python stdtrap.py --quiet /tmp/ls.log -- ls -la /
+    """
+
+    sys.exit(1)
+
+def main():
+    import getopt
+    import commands
+
+    args = sys.argv[1:]
+    try:
+        opts, args = getopt.gnu_getopt(args, 'qph', [ "quiet", "pty", "help" ])
+    except getopt.GetoptError, e:
+        usage(e)
+
+    opt_quiet = False
+    opt_pty = False
+
+    for opt, val in opts:
+        if opt in ('-h', '--help'):
+            usage()
+
+        if opt in ('-q', '--quiet'):
+            opt_quiet = True
+
+        if opt in ('-p', '--pty'):
+            opt_pty = True
+
+    if not args:
+        usage()
+
+    output = args.pop(0)
+    if output[0] == '|':
+        output = output[1:]
+        from subprocess import Popen, PIPE
+
+        p = Popen(output, shell=True, stdin=PIPE)
+        output_fh = p.stdin
+
+    else:
+        output_fh = file(output, 'w')
+    
+    command = args if args else [ os.environ.get('SHELL', '/bin/bash') ]
+    trap = UnitedStdTrap(usepty=opt_pty, transparent=not opt_quiet, tee=output_fh)
+    try:
+        os.system(command[0] + " ".join(commands.mkarg(arg) for arg in command[1:]))
+    finally:
+        trap.close()
+        output_fh.close()
+
+if __name__ == '__main__':
+    main()
