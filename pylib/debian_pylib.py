@@ -10,16 +10,9 @@ class SetupBase:
     @classmethod
     def setup(cls, **kwargs):
         packages = cls.get_packages()
-        if not packages:
-            return
-
-        d = {
-            'packages': packages,
-        }
-
-        d.update(kwargs)
-
-        _setup(**d)
+        if packages:
+            kwargs.update(packages=packages)
+        _setup(**kwargs)
 
     @staticmethod
     def get_packages():
