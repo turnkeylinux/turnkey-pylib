@@ -16,6 +16,7 @@ redirect output through a pager if:
 import os
 import sys
 import errno
+import commands
 
 class _PagedStdout:
     # lazy definition of pager attribute so that we
@@ -26,7 +27,7 @@ class _PagedStdout:
 
         pager = None
         if os.isatty(sys.stdout.fileno()):
-            pager_env = os.environ.get('PAGER')
+            pager_env = os.environ.get('PAGER', commands.getoutput('which less'))
             if pager_env:
                 pager = os.popen(pager_env, "w")
 
@@ -39,12 +40,12 @@ class _PagedStdout:
             self.pager.flush()
         else:
             sys.stdout.flush()
-        
+
     def write(self, text):
         if self.pager:
             try:
                 self.pager.write(text)
-                
+
             except IOError, e:
                 if e[0] != errno.EPIPE:
                     raise
