@@ -50,7 +50,7 @@ def fmt_sysversion():
     version = []
     release = get_turnkey_release()
     if release:
-        version.append("TurnKey Linux %s" % release)
+        version.append("TurnKey GNU/Linux %s" % release)
 
     basedist = fmt_base_distribution()
     if basedist:

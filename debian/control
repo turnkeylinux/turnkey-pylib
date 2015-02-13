@@ -9,4 +9,4 @@ Package: turnkey-pylib
 Architecture: any
 Depends: python (>= 2.4)
 Suggests: python-profiler
-Description: TurnKey Linux standard Python library
+Description: TurnKey GNU/Linux standard Python library
