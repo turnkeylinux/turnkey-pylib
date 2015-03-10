@@ -14,12 +14,13 @@ import subprocess
 from subprocess import PIPE
 
 import commands
+import re
 
 from executil import *
 
 def is_git_repository(path):
     """Return True if path is a git repository"""
-    
+
     try:
         git = Git(path)
         return True
@@ -32,7 +33,7 @@ def setup(method):
     2) processes arguments (only non-keywords arguments):
        stringifies them (except None, True or False)
        translates all absolute paths inside git.path to be relative to git.path
-    
+
     """
 
     def wrapper(self, *args, **kws):
@@ -61,7 +62,7 @@ def setup(method):
             os.chdir(orig_cwd)
 
         return ret
-        
+
     return wrapper
 
 class Error(Exception):
@@ -85,14 +86,14 @@ class Git(object):
 
         def get_path(self, obj):
             return join(obj.path, ".git", "MERGE_MSG")
-        
+
         def __get__(self, obj, type):
             path = self.get_path(obj)
             if exists(path):
                 return file(path, "r").read()
 
             return None
-        
+
         def __set__(self, obj, val):
             path = self.get_path(obj)
             file(path, "w").write(val)
@@ -106,7 +107,7 @@ class Git(object):
         def __get__(self, obj, type):
             path = self.get_path(obj)
             return exists(path)
-        
+
         def __set__(self, obj, val):
             path = self.get_path(obj)
             if val:
@@ -129,7 +130,7 @@ class Git(object):
         command = "git --git-dir %s init" % commands.mkarg(init_path)
         if not verbose:
             command += " > /dev/null"
-            
+
         os.system(command)
 
         return cls(path)
@@ -174,7 +175,7 @@ class Git(object):
     def update_index(self, *paths):
         """git update-index --remove <paths>"""
         self._system("update-index --remove", *paths)
-        
+
     def update_index_refresh(self):
         """git update-index --refresh"""
         self._system("update-index -q --unmerged --refresh")
@@ -199,7 +200,7 @@ class Git(object):
     def checkout(self, *args):
         """git checkout *args"""
         self._system("checkout", *args)
-        
+
     def checkout_index(self):
         """git checkout-index -a -f"""
         self._system("checkout-index -a -f")
@@ -248,7 +249,7 @@ class Git(object):
     def repack(self, *args):
         """git repack *args"""
         self._system("repack", *args)
-        
+
     def fetch(self, repository, refspec):
         self._system("fetch", repository, refspec)
 
@@ -257,7 +258,7 @@ class Git(object):
         Returns:
             exit status code if command failed
             None if it was successfuly"""
-        
+
         try:
             self._system(command, *args)
         except self.Error, e:
@@ -313,9 +314,9 @@ class Git(object):
         output = self._getoutput("rev-list", *args)
         if not output:
             return []
-        
+
         return output.split('\n')
-    
+
     def name_rev(self, rev):
         """git name-rev <rev>
         Returns name of rev"""
@@ -346,7 +347,7 @@ class Git(object):
 
         stdout, stderr = p.communicate()
         return stdout.splitlines()
-        
+
     @setup
     def commit_tree(self, id, log, parents=None):
         """git commit-tree <id> [ -p <parents> ] < <log>
@@ -365,7 +366,7 @@ class Git(object):
             p.stdin.close()
         except IOError:
             pass
-        
+
         err = p.wait()
         if err:
             raise self.Error("git commit-tree failed: " + p.stderr.read())
@@ -381,7 +382,7 @@ class Git(object):
             p.stdin.close()
         except IOError:
             pass
-        
+
         err = p.wait()
         if err:
             raise self.Error("git mktree failed: " + p.stderr.read())
@@ -400,7 +401,7 @@ class Git(object):
         p = subprocess.Popen(command, stdout=PIPE, bufsize=1)
 
         return p.stdout
-    
+
     def status(self, *paths):
         """git diff-index --name-status HEAD
         Returns array of (status, path) changes """
@@ -410,7 +411,7 @@ class Git(object):
         if output:
             return [ line.split('\t', 1) for line in output.split('\n')]
         return []
-    
+
     def list_unmerged(self):
         output = self._getoutput("diff --name-only --diff-filter=U")
         if output:
@@ -425,13 +426,13 @@ class Git(object):
 
     def ls_files(self, *args):
         return self._getoutput("ls-files", *args).splitlines()
-            
+
     def list_changed_files(self, compared, *paths):
         """Return a list of files that changed between compared.
 
         If compared is tuple/list with 2 elements, we compare the
         compared[0] and compared[1] with git diff-tree.
-        
+
         If compared is not a tuple/list, or a tuple/list with 1 element,
         we compare compared with git diff-index which compares a commit/treeish to
         the index."""
@@ -448,17 +449,16 @@ class Git(object):
                                   compared[0], *paths)
         else:
             raise self.Error("compared does not contain 1 or 2 elements")
-            
+
         if str:
             return str.split('\n')
         return []
 
     def list_refs(self, refpath):
-        """list refs in <refpath> (e.g., "heads")"""
-        path = join(self.gitdir, "refs", refpath)
-        if not isdir(path):
-            return []
-        return os.listdir(path)
+        command = "show-ref --" + refpath
+
+        return [ re.sub('.*/', '', line.split()[1])
+                 for line in self._getoutput(command).splitlines() ]
 
     def list_heads(self):
         return self.list_refs("heads")
