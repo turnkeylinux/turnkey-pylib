@@ -485,9 +485,7 @@ class Git(object):
 
     def remove_ref(self, ref):
         """deletes refs/<ref> from the git repository"""
-        path = join(self.gitdir, "refs", ref)
-        if lexists(path):
-            os.remove(path)
+        self.update_ref("-d", join("refs", ref))
 
     def remove_tag(self, name):
         self.remove_ref("tags/" + name)
