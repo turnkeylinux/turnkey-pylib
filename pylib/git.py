@@ -457,8 +457,16 @@ class Git(object):
     def list_refs(self, refpath):
         command = "show-ref --" + refpath
 
-        return [ re.sub('.*/', '', line.split()[1])
-                 for line in self._getoutput(command).splitlines() ]
+        try:
+            return [ re.sub('.*/', '', line.split()[1])
+                    for line in self._getoutput(command).splitlines() ]
+
+        except self.Error, e:
+            e = e.args[0]
+            if e.output == '':
+                return []
+
+            raise
 
     def list_heads(self):
         return self.list_refs("heads")

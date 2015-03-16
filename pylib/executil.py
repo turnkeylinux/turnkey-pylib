@@ -70,7 +70,7 @@ def getoutput(command, *args):
 def getoutput_popen(command, input=None):
     """Uses subprocess.Popen to execute <command>, piping <input> into stdin.
     If command returns non-zero exitcode raise ExecError.
-    
+
     Return command output.
     """
 
