@@ -458,15 +458,24 @@ class Git(object):
         command = "show-ref --" + refpath
 
         try:
-            return [ re.sub('.*/', '', line.split()[1])
-                    for line in self._getoutput(command).splitlines() ]
-
+            output = self._getoutput(command)
         except self.Error, e:
             e = e.args[0]
             if e.output == '':
                 return []
 
             raise
+
+        tags = []
+        regexp = re.compile('^[0-9a-f]+ refs/%s/(.*)' % refpath)
+        for line in output.splitlines():
+            m = regexp.match(line)
+            if not m:
+                continue
+            tag = m.group(1)
+            tags.append(tag)
+
+        return tags
 
     def list_heads(self):
         return self.list_refs("heads")
