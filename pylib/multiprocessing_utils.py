@@ -224,6 +224,30 @@ class Parallelize:
 
             self.done.set()
 
+    class IterResults:
+        def __init__(self, parent):
+            self.parent = parent
+            self.yielded = 0
+
+        def __iter__(self):
+            self.yielded = 0
+            return self
+
+        def next(self):
+            finished = False
+
+            while True:
+                if len(self.parent.results) > self.yielded:
+                    result = self.parent.results[self.yielded]
+                    self.yielded += 1
+                    return result
+
+                if not finished:
+                    finished = self.parent.wait(block=False)
+
+                if finished and self.yielded == len(self.parent.results):
+                    raise StopIteration
+
     def __init__(self, executors):
         for executor in executors:
             if not callable(executor):
@@ -248,6 +272,7 @@ class Parallelize:
         self.results = []
         self._results_vacuum = WaitableQueue.Vacuum(q_output, self.results)
 
+        self.iresults = self.IterResults(self)
         self._executors = None
 
     @property
@@ -506,5 +531,35 @@ def test2():
         p.stop()
         print "after stop"
 
+def test3():
+    def square(i):
+        import time
+        time.sleep(1)
+        return i * i
+
+    # pickle doesn't like embedded functions
+    globals()[square.__name__] = square
+
+    square = Parallelize([ square ] * 10)
+    print "Allocated children"
+
+    try:
+        for i in range(10):
+            square(i)
+
+        print "Queued parallelized invocations. Ctrl-C to abort!"
+        for i, result in enumerate(square.iresults):
+            print result
+
+        print "len(iresults) == " + `i + 1`
+
+    finally:
+        aborted = square.stop()
+        if aborted:
+            print "len(aborted) = %d" % len(aborted)
+            print "len(aborted) + len(results) = %d" % (len(aborted) + len(square.results))
+
+        print "len(pool.results) = %d" % len(square.results)
+
 if __name__ == "__main__":
-    test2()
+    test3()
