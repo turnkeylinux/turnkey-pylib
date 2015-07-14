@@ -1,4 +1,4 @@
-# Copyright (c) 2011-2012 Liraz Siri <liraz@turnkeylinux.org>
+# Copyright (c) 2011-2015 Liraz Siri <liraz@turnkeylinux.org>
 #
 # This file is part of turnkey-pylib.
 #
@@ -290,16 +290,7 @@ class Parallelize:
 
         return False
 
-    def wait(self, keepalive=True, keepalive_spares=0):
-        """wait for all input to be processed by workers.
-
-        Arguments:
-
-        If keepalive=False: stop idle workers once there's nothing left to do.
-        If keepalive=False and keepalive_spares > 0: keep alive at least
-        keepalive_spares spare workers.
-
-        """
+    def _wait_nonblock(self, keepalive=True, keepalive_spares=0):
 
         def find_busy_worker():
             for worker in self.workers:
@@ -309,53 +300,75 @@ class Parallelize:
                 if worker.is_initialized() and worker.is_busy():
                     return worker
 
+        # gauntlet of checks to make sure the input queue is empty and all
+        # workers are idle
+
+        self.q_input.wait_empty(0.1)
+
+        if not self.any_alive():
+            return True
+
+        saved_put_counter = self.q_input.put_counter
+
+        if not keepalive:
+
+            # if keepalive is False shutdown workers that aren't busy
+            if self.q_input.qsize() != 0:
+                return False
+
+            idle_workers = [ worker for worker in self.workers
+                                if worker.is_alive() and \
+                                not worker.is_busy() and \
+                                not worker.is_stopped() ]
+
+            if len(idle_workers) > keepalive_spares:
+                for worker in idle_workers:
+
+                    # check is_busy() again just to make sure
+                    if not worker.is_busy():
+                        worker.stop()
+                        break
+
+                return False
+
+            busy_worker = find_busy_worker()
+            if busy_worker:
+                time.sleep(0.1)
+                return False
+
+        else:
+            worker = find_busy_worker()
+            if worker:
+                worker.wait()
+                return False
+
+        # give puts to the input Queue a chance to make it through
+        time.sleep(0.1)
+
+        # workers may have written to the input Queue
+        if self.q_input.put_counter != saved_put_counter:
+            return False
+
+        return True
+
+    def wait(self, keepalive=True, keepalive_spares=0, block=True):
+        """wait for all input to be processed by workers.
+
+        Returns True if finished (always True when block=True) else False
+
+        Arguments:
+
+        If keepalive=False: stop idle workers once there's nothing left to do.
+        If keepalive=False and keepalive_spares > 0: keep alive at least
+        keepalive_spares spare workers.
+
+        """
+
         while True:
-            self.q_input.wait_empty(0.1)
 
-            if not self.any_alive():
-                break
-
-            saved_put_counter = self.q_input.put_counter
-
-            if not keepalive:
-                if self.q_input.qsize() != 0:
-                    continue
-
-                idle_workers = [ worker for worker in self.workers
-                                 if worker.is_alive() and \
-                                    not worker.is_busy() and \
-                                    not worker.is_stopped() ]
-
-                if len(idle_workers) > keepalive_spares:
-                    for worker in idle_workers:
-
-                        # check is_busy() again just to make sure
-                        if not worker.is_busy():
-                            worker.stop()
-                            break
-
-                    continue
-
-                busy_worker = find_busy_worker()
-                if busy_worker:
-                    time.sleep(0.1)
-                    continue
-
-            else:
-                worker = find_busy_worker()
-                if worker:
-                    worker.wait()
-                    continue
-
-            # give puts to the input Queue a chance to make it through
-            time.sleep(0.1)
-
-            # workers may have written to the input Queue
-            if self.q_input.put_counter != saved_put_counter:
-                continue
-
-            # only reached when there was no input and no active workers
-            return
+            finished = self._wait_nonblock(keepalive, keepalive_spares)
+            if finished or not block:
+                return finished
 
     def stop(self, finish_timeout=None):
         """Stop workers and return any unprocessed input values"""
@@ -450,13 +463,12 @@ def test2():
     class ExampleExecutor:
         def __init__(self, name):
             import os
-            import time
-            import random
 
             self.name = name
             self.pid = os.getpid()
 
-            ## if we want to test what happens to failed initializations
+            #import random
+            # if we want to test what happens to failed initializations
             #if random.randint(0, 1):
             #    raise Exception
 
