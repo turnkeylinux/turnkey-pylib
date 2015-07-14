@@ -1,7 +1,7 @@
 # Copyright (c) 2011-2012 Liraz Siri <liraz@turnkeylinux.org>
-# 
+#
 # This file is part of turnkey-pylib.
-# 
+#
 # turnkey-pylib is open source software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
 # published by the Free Software Foundation; either version 3 of the
@@ -105,16 +105,21 @@ class Parallelize:
 
     3) The .wait() method waits for all queued execution to finish.
 
-    4) The .stop() method stops parallel execution. This can be after wait
-       has completed, or in the middle (e.g., handling an exception such as
-       Ctrl-C) in which case you get back a list of aborted inputs.
+    4) The .stop() method stops parallel execution.
+
+       Returns an empty array if you call it after wait() has completed.
+
+       Returns aborted inputs if you call it mid-execution (e.g., handling an
+       exception such as Ctrl-C)
 
     5) The .results is an array that holds the return values. A background
        thread updates it in real-time as soon as the underlying functions in
-       various processes finish executing and return values. 
-       
+       various processes finish executing and return values.
+
        After .wait() its length will be the same size as the number of calls
        to the Parallelize instance.
+
+    Note that you have eto call either wait or stop or Parallelize to collect results.
 
     """
     class Error(Exception):
@@ -195,8 +200,8 @@ class Parallelize:
 
             self.idle.set()
 
-            Process.__init__(self, 
-                             target=self.worker, 
+            Process.__init__(self,
+                             target=self.worker,
                              args=(self.initialized, self.done, self.idle, q_executors, q_input, q_output, executor))
 
         def is_busy(self):
@@ -251,7 +256,7 @@ class Parallelize:
             return self._executors
 
         def finished_initialization():
-            # returns 0 unless finished, else numbers of initialized workers 
+            # returns 0 unless finished, else numbers of initialized workers
             executors = 0
             for worker in self.workers:
                 if not worker.is_alive():
@@ -277,8 +282,16 @@ class Parallelize:
         self.q_executors = None
         return self._executors
 
+    def any_alive(self):
+        """Return True if any workers are alive, else False"""
+        for worker in self.workers:
+            if worker.is_alive():
+                return True
+
+        return False
+
     def wait(self, keepalive=True, keepalive_spares=0):
-        """wait for all input to be processed by workers. 
+        """wait for all input to be processed by workers.
 
         Arguments:
 
@@ -296,17 +309,10 @@ class Parallelize:
                 if worker.is_initialized() and worker.is_busy():
                     return worker
 
-        def any_alive():
-            for worker in self.workers:
-                if worker.is_alive():
-                    return True
-
-            return False
-
         while True:
             self.q_input.wait_empty(0.1)
 
-            if not any_alive():
+            if not self.any_alive():
                 break
 
             saved_put_counter = self.q_input.put_counter
@@ -315,7 +321,7 @@ class Parallelize:
                 if self.q_input.qsize() != 0:
                     continue
 
-                idle_workers = [ worker for worker in self.workers 
+                idle_workers = [ worker for worker in self.workers
                                  if worker.is_alive() and \
                                     not worker.is_busy() and \
                                     not worker.is_stopped() ]
@@ -360,7 +366,7 @@ class Parallelize:
         # ignore SIGINT and SIGTERM for now (restore later)
         sigint_handler = signal.getsignal(signal.SIGINT)
         sigterm_handler = signal.getsignal(signal.SIGTERM)
-        
+
         signal.signal(signal.SIGINT, signal.SIG_IGN)
         signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
@@ -372,16 +378,9 @@ class Parallelize:
 
         started = time.time()
 
-        def any_alive():
-            for worker in self.workers:
-                if worker.is_alive():
-                    return True
-
-            return False
-
         try:
             while True:
-                if not any_alive():
+                if not self.any_alive():
                     break
 
                 if finish_timeout is not None and (time.time() - started) > finish_timeout:
