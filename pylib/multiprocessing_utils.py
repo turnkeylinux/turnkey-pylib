@@ -119,7 +119,15 @@ class Parallelize:
        After .wait() its length will be the same size as the number of calls
        to the Parallelize instance.
 
+    6) .iresults is an iterator that allows you to safely read the stream of results coming
+       in from the workers without having to wait for the end of the execution.
+
     Note that you have eto call either wait or stop or Parallelize to collect results.
+
+    Exception handling:
+
+        An uncaught exception inside a worker kills the worker, resubmits the
+        input into the queue where it will be picked up by another worker.
 
     """
     class Error(Exception):
