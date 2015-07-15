@@ -94,6 +94,7 @@ class Deferred:
 
 class Parallelize:
     """
+    Usage:
 
     1) You pass a sequence of callables to Parallelize. In the most simple
        usage case these will be functions, but they can also be callable
@@ -112,17 +113,16 @@ class Parallelize:
        Returns aborted inputs if you call it mid-execution (e.g., handling an
        exception such as Ctrl-C)
 
-    5) The .results is an array that holds the return values. A background
-       thread updates it in real-time as soon as the underlying functions in
-       various processes finish executing and return values.
+    5) The .results is an iterator that iterates over return values from workers.
 
-       After .wait() its length will be the same size as the number of calls
-       to the Parallelize instance.
+       A background thread collects return values in real-time as soon as the
+       underlying functions in various processes finish executing and return
+       values.
 
-    6) .iresults is an iterator that allows you to safely read the stream of results coming
-       in from the workers without having to wait for the end of the execution.
+       After .wait() the number of return values will be the same size as the number of calls
+       to the Parallelize instance, unless parallelize was aborted.
 
-    Note that you have eto call either wait or stop or Parallelize to collect results.
+    Note that you have to call either wait or stop or Parallelize to collect results.
 
     Exception handling:
 
@@ -245,16 +245,25 @@ class Parallelize:
             finished = False
 
             while True:
-                if len(self.parent.results) > self.yielded:
-                    result = self.parent.results[self.yielded]
+                if len(self.parent._results) > self.yielded:
+                    result = self.parent._results[self.yielded]
                     self.yielded += 1
                     return result
 
                 if not finished:
                     finished = self.parent.wait(block=False)
 
-                if finished and self.yielded == len(self.parent.results):
+                if finished and self.yielded == len(self.parent._results):
                     raise StopIteration
+
+        def __len__(self):
+            return len(self.parent._results)
+
+        def __getitem__(self, key):
+            return self.parent._results[key]
+
+        def __repr__(self):
+            return repr(self.parent._results)
 
     def __init__(self, executors):
         for executor in executors:
@@ -277,10 +286,10 @@ class Parallelize:
         self.q_input = q_input
         self.q_executors = q_executors
 
-        self.results = []
-        self._results_vacuum = WaitableQueue.Vacuum(q_output, self.results)
+        self._results = []
+        self._results_vacuum = WaitableQueue.Vacuum(q_output, self._results)
 
-        self.iresults = self.IterResults(self)
+        self.results = self.IterResults(self)
         self._executors = None
 
     @property
@@ -556,7 +565,7 @@ def test3():
             square(i)
 
         print "Queued parallelized invocations. Ctrl-C to abort!"
-        for i, result in enumerate(square.iresults):
+        for i, result in enumerate(square.results):
             print result
 
         print "len(iresults) == " + `i + 1`
