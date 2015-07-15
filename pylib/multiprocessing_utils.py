@@ -141,7 +141,7 @@ class Parallelize:
             pass
 
         @classmethod
-        def worker(cls, initialized, done, idle, q_executors, q_input, q_output, executor):
+        def worker(cls, initialized, done, idle, q_input, q_output, executor):
             def raise_exception(s, f):
                 signal.signal(s, signal.SIG_IGN)
                 raise cls.Terminated
@@ -156,7 +156,6 @@ class Parallelize:
                     if not callable(executor):
                         raise Parallelize.Error("product of deferred executor %s is not callable" % `executor`)
 
-                q_executors.put(executor)
                 initialized.set()
             except cls.Terminated:
                 return
@@ -201,7 +200,7 @@ class Parallelize:
             except cls.Terminated:
                 pass # just exit peacefully
 
-        def __init__(self, q_executors, q_input, q_output, executor):
+        def __init__(self, q_input, q_output, executor):
             self.initialized = Event()
             self.idle = Event()
             self.done = Event()
@@ -210,7 +209,7 @@ class Parallelize:
 
             Process.__init__(self,
                              target=self.worker,
-                             args=(self.initialized, self.done, self.idle, q_executors, q_input, q_output, executor))
+                             args=(self.initialized, self.done, self.idle, q_input, q_output, executor))
 
         def is_busy(self):
             return self.is_alive() and not self.idle.is_set()
@@ -272,11 +271,10 @@ class Parallelize:
 
         q_input = WaitableQueue()
         q_output = WaitableQueue()
-        q_executors = WaitableQueue()
 
         self.workers = []
         for executor in executors:
-            worker = self.Worker(q_executors, q_input, q_output, executor)
+            worker = self.Worker(q_input, q_output, executor)
             worker.start()
 
             self.workers.append(worker)
@@ -284,45 +282,11 @@ class Parallelize:
         self.size = len(executors)
 
         self.q_input = q_input
-        self.q_executors = q_executors
 
         self._results = []
         self._results_vacuum = WaitableQueue.Vacuum(q_output, self._results)
 
         self.results = self.IterResults(self)
-        self._executors = None
-
-    @property
-    def executors(self):
-        if self._executors:
-            return self._executors
-
-        def finished_initialization():
-            # returns 0 unless finished, else numbers of initialized workers
-            executors = 0
-            for worker in self.workers:
-                if not worker.is_alive():
-                    continue
-
-                if not worker.is_initialized():
-                    return 0
-
-                executors += 1
-
-            return executors
-
-        while True:
-            initialized = finished_initialization()
-            if initialized:
-                break
-
-        self._executors = []
-        for i in range(initialized):
-            executor = self.q_executors.get()
-            self._executors.append(executor)
-
-        self.q_executors = None
-        return self._executors
 
     def any_alive(self):
         """Return True if any workers are alive, else False"""
@@ -534,11 +498,7 @@ def test2():
 
     p = Parallelize(deferred)
     try:
-        print "len(p.executors) = %d" % len(p.executors)
-
-        for executor in p.executors:
-            print executor.pid
-
+        print "len(p.workers) = %d" % len(p.workers)
         for i in range(2):
             p(i)
 
