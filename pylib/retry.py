@@ -23,7 +23,7 @@ def retry(retries, delay=1, backoff=0):
                 try:
                     return func(*args, **kwargs)
                 except:
-                    if delay:
+                    if attempt < retries and delay:
                         sleep(delay + delay * attempt * backoff)
             else:
                 raise
