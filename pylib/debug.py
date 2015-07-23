@@ -9,15 +9,27 @@ Usage:
 import types
 import os
 
-def _trace(func, callback=None):
+def _fmt(val, trunc):
+    r = `val`
+    if len(r) > trunc:
+        end = r[-1]
+
+        r = r[:trunc - 3] + "..."
+        if not end.isalnum():
+            r += end
+
+    return r
+
+def _trace(func, callback=None, trunc=48):
     def wrapper(*args, **kwargs):
         trace = func.__name__ + "("
 
         if args:
-            trace += ", ".join(`arg` for arg in args)
+            trace += ", ".join(_fmt(arg, trunc) for arg in args)
 
         if kwargs:
-            trace += ", " + ", ".join("%s=%r" % (key, val) for key,val in kwargs.items())
+            trace += ", " + ", ".join("%s=%s" % (key, _fmt(val, trunc))
+                                       for key,val in kwargs.items())
 
         trace += ")"
 
