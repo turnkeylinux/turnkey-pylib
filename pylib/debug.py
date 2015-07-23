@@ -10,7 +10,10 @@ Set new default callback:
     def new_callback(s):
         pass
 
-    trace.callback = new_callback
+    trace.callback = new_global_callback
+
+    # disable trace function
+    trace.callback = None
 
 """
 import types
@@ -54,10 +57,9 @@ def _trace(func, callback=None, trunc=48):
 
         s += ")"
 
-        if callback:
-            callback(s)
-        else:
-            trace.callback(s)
+        callable = callback if callback else trace.callback
+        if callable:
+            callable(s)
 
         return func(*args, **kwargs)
 
