@@ -7,6 +7,7 @@ Usage:
 
 """
 import types
+import os
 
 def _trace(func, callback=None):
     def wrapper(*args, **kwargs):
@@ -23,7 +24,7 @@ def _trace(func, callback=None):
         if callback:
             callback(trace)
         else:
-            print "TRACE: " + trace
+            print "TRACE %d: %s" % (os.getpid(), trace)
 
         return func(*args, **kwargs)
 
