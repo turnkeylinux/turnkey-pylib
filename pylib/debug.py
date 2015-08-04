@@ -46,19 +46,18 @@ trace.callback = _default_callback
 
 def _trace(func, callback=None, trunc=48):
     def wrapper(*args, **kwargs):
-        s = func.__name__ + "("
-
-        if args:
-            s += ", ".join(_fmt(arg, trunc) for arg in args)
-
-        if kwargs:
-            s += ", " + ", ".join("%s=%s" % (key, _fmt(val, trunc))
-                                       for key,val in kwargs.items())
-
-        s += ")"
-
         callable = callback if callback else trace.callback
         if callable:
+
+            s = func.__name__ + "("
+            if args:
+                s += ", ".join(_fmt(arg, trunc) for arg in args)
+
+            if kwargs:
+                s += ", " + ", ".join("%s=%s" % (key, _fmt(val, trunc))
+                                        for key,val in kwargs.items())
+
+            s += ")"
             callable(s)
 
         return func(*args, **kwargs)
