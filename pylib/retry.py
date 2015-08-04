@@ -9,19 +9,27 @@ Usage examples:
 """
 from time import sleep
 
-def retry(retries, delay=1, backoff=0):
+def retry(retries, delay=1, backoff=0, fatal_exceptions=None):
     """
     Argument:
 
-        retries     how many times to retry if exception is raised
-        delay       how many seconds to delay in case of failure
-        backoff     linear backoff factor (e.g., 0 = no backoff, 1 = 100% step increase)
+        retries             how many times to retry if exception is raised
+        delay               how many seconds to delay in case of failure
+        backoff             linear backoff factor (e.g., 0 = no backoff, 1 = 100% step increase)
+        fatal_exc           fatal exceptions are unrecoverable, raised immediately
     """
     def decorator(func):
+
+        _fatal_exceptions = (SyntaxError, KeyboardInterrupt, SystemExit)
+        if fatal_exceptions:
+            _fatal_exceptions += fatal_exceptions
+
         def wrapper(*args, **kwargs):
             for attempt in range(retries + 1):
                 try:
                     return func(*args, **kwargs)
+                except _fatal_exceptions:
+                    raise
                 except:
                     if attempt < retries and delay:
                         sleep(delay + delay * attempt * backoff)
