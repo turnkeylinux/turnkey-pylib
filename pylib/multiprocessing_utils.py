@@ -318,7 +318,7 @@ class Parallelize:
 
         if not keepalive:
 
-            # if keepalive is False shutdown workers that aren't busy
+            # if input queue is empty and keepalive is False shutdown idle workers
             if self.q_input.qsize() != 0:
                 return False
 
@@ -337,16 +337,9 @@ class Parallelize:
 
                 return False
 
-            busy_worker = find_busy_worker()
-            if busy_worker:
-                time.sleep(0.1)
-                return False
-
-        else:
-            worker = find_busy_worker()
-            if worker:
-                worker.wait()
-                return False
+        busy_worker = find_busy_worker()
+        if busy_worker:
+            return False
 
         # give puts to the input Queue a chance to make it through
         time.sleep(0.1)
@@ -375,6 +368,8 @@ class Parallelize:
             finished = self._wait_nonblock(keepalive, keepalive_spares)
             if finished or not block:
                 return finished
+
+            time.sleep(0.1)
 
     def stop(self, finish_timeout=None):
         """Stop workers and return any unprocessed input values"""
