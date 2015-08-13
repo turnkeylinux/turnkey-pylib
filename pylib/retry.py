@@ -22,7 +22,11 @@ def retry(retries, delay=1, backoff=0, fatal_exceptions=None):
 
         _fatal_exceptions = (SyntaxError, KeyboardInterrupt, SystemExit)
         if fatal_exceptions:
-            _fatal_exceptions += fatal_exceptions
+
+            if issubclass(fatal_exceptions, Exception):
+                _fatal_exceptions += (fatal_exceptions,)
+            else:
+                _fatal_exceptions += fatal_exceptions
 
         def wrapper(*args, **kwargs):
             for attempt in range(retries + 1):
