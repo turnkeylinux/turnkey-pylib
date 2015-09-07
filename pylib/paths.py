@@ -1,13 +1,13 @@
-# 
+#
 # Copyright (c) 2007-2010 Liraz Siri <liraz@turnkeylinux.org>
-# 
+#
 # This file is part of turnkey-pylib.
-# 
+#
 # turnkey-pylib is open source software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
 # published by the Free Software Foundation; either version 3 of
 # the License, or (at your option) any later version.
-# 
+#
 """
 DESCRIPTION
 
@@ -27,6 +27,14 @@ class FooPaths(Paths):
 
 class BarPaths(FooPaths):
 	files = [ "bar" ] + subdir("sub.dir2", ["sub-file2"])
+
+class DefaultPath(Paths):
+    @classmethod
+    def create(cls, path=None):
+        if path is None:
+            path = os.environ.get('DEFAULT_PATH', os.getcwd())
+
+        return cls(path)
 
 paths = BarPaths("/tmp")
 print paths.foo
@@ -49,7 +57,7 @@ def make_relative(base, path):
         make_relative("../../", "file") == "path/to/file"
         make_relative("/base", "/tmp") == "../tmp"
         make_relative("/base", "/base/backups/file") == "backups/file"
-        
+
     """
 
     up_count = 0
@@ -66,7 +74,7 @@ def make_relative(base, path):
 
 class Paths(str):
     make_relative = staticmethod(make_relative)
-    
+
     files = []
     def __new__(cls, path, files=[]):
         return str.__new__(cls, path)
@@ -95,7 +103,7 @@ class Paths(str):
     @staticmethod
     def _fname2attr(fname):
         return re.sub(r'[\.-]', '_', fname)
-    
+
     def listdir(self):
         "Return a list containing the names of the entries in directory"""
         return self.files.values()
