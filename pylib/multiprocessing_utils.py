@@ -428,6 +428,13 @@ class Parallelize:
         else:
             self.q_input.put(args)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, tb):
+        self.wait(keepalive=False)
+        self.stop()
+
     def __del__(self):
         self.stop()
 
@@ -533,5 +540,39 @@ def test3():
 
         print "len(pool.results) = %d" % len(square.results)
 
+def test4():
+    def square(i):
+        import time
+        time.sleep(1)
+        return i * i
+
+    # pickle doesn't like embedded functions
+    globals()[square.__name__] = square
+
+    with Parallelize([ square ] * 10) as square:
+        for i in range(10):
+            square(i)
+
+        print "Queued parallelized invocations. Ctrl-C to abort!"
+        for i, result in enumerate(square.results):
+            print result
+
+def test5():
+
+    def square(i):
+        import time
+        time.sleep(1)
+        return i * i
+
+    # pickle doesn't like embedded functions
+    globals()[square.__name__] = square
+
+    with Parallelize([ square ] * 10) as square:
+
+        for i in range(10):
+            square(i)
+
+    print "results: " + `square.results`
+
 if __name__ == "__main__":
-    test3()
+    test5()
