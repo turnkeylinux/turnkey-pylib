@@ -438,6 +438,26 @@ class Parallelize:
     def __del__(self):
         self.stop()
 
+def parallel_map(max_procs, f, sequence):
+    items = list(sequence)
+    if not items:
+        return
+
+    if max_procs > len(items):
+        max_procs = len(items)
+
+    if max_procs == 1:
+        for item in items:
+            yield f(item)
+
+    else:
+        with Parallelize([f] * max_procs) as executor:
+            for item in items:
+                executor(item)
+
+            for result in executor.results:
+                yield result
+
 def test():
     import time
     def sleeper(seconds):
