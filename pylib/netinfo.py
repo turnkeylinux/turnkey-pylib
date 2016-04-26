@@ -129,3 +129,6 @@ class InterfaceInfo(object):
 def get_hostname():
     return socket.gethostname()
 
+def get_fqdn():
+    return socket.getfqdn()
+
