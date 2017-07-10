@@ -2,7 +2,7 @@ Source: turnkey-pylib
 Section: python
 Priority: optional
 Maintainer: Alon Swartz <alon@turnkeylinux.org>
-Build-Depends: debhelper (>> 4.2.0), python (>= 2.4), dpkg-dev
+Build-Depends: debhelper (>= 10), python (>= 2.4), dpkg-dev
 Standards-Version: 4.0.0
 
 Package: turnkey-pylib
