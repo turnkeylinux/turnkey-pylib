@@ -2,11 +2,16 @@ Source: turnkey-pylib
 Section: python
 Priority: optional
 Maintainer: Alon Swartz <alon@turnkeylinux.org>
-Build-Depends: debhelper (>= 10), python (>= 2.4), dpkg-dev
+Build-Depends:
+ debhelper (>= 10),
+ dpkg-dev,
+ python (>= 2.4),
 Standards-Version: 4.0.0
 
 Package: turnkey-pylib
 Architecture: any
-Depends: python (>= 2.4)
-Suggests: python-profiler
+Depends:
+ python (>= 2.4),
+Suggests:
+ python-profiler,
 Description: TurnKey GNU/Linux standard Python library
