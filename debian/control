@@ -5,12 +5,15 @@ Maintainer: Alon Swartz <alon@turnkeylinux.org>
 Build-Depends:
  debhelper (>= 10),
  python (>= 2.4),
+ python-all (>= 2.6.6-3~),
+ python-setuptools,
+X-Python-Version: >= 2.6
 Standards-Version: 4.0.0
 
 Package: turnkey-pylib
 Architecture: any
 Depends:
- python (>= 2.4),
+ ${python:Depends},
 Suggests:
  python-profiler,
 Description: TurnKey GNU/Linux standard Python library
