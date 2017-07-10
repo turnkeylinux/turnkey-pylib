@@ -13,6 +13,7 @@ Standards-Version: 4.0.0
 Package: turnkey-pylib
 Architecture: any
 Depends:
+ ${misc:Depends},
  ${python:Depends},
 Suggests:
  python-profiler,
