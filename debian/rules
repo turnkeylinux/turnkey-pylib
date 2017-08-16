@@ -1,31 +1,4 @@
-#! /usr/bin/make -f
+#!/usr/bin/make -f
 
-# Uncomment this to turn on verbose mode.
-#export DH_VERBOSE=1
-
-progname=$(shell awk '/^Source/ {print $$2}' debian/control)
-prefix=debian/$(progname)/usr
-
-build:
-	mkdir -p $(prefix)
-
-clean:
-	dh_clean
-
-install: build
-	dh_clean -k
-	python setup.py install --prefix $(prefix) --install-layout=deb
-
-binary-indep: build install
-
-binary-arch: build install
-	dh_testdir
-	dh_testroot
-	dh_installdocs docs/
-	dh_installdeb -a
-	dh_gencontrol -a
-	dh_md5sums -a
-	dh_builddeb -a
-
-binary: binary-indep binary-arch
-.PHONY: build clean binary-indep binary-arch binary install
+%:
+	dh $@ --with python2 --buildsystem=pybuild
