@@ -14,6 +14,7 @@ import re
 import subprocess
 import os
 from os.path import *
+import contextlib
 
 import sys
 import pwd
@@ -21,7 +22,6 @@ import tarfile
 from hashlib import md5
 from io import BytesIO
 import lzma
-import contextlib
 
 import ar
 from hashstore import HashStore
@@ -56,22 +56,24 @@ def _extract_control(path):
     compression_type = compression_type[1:]
         
     control_tar_archive = ar.extract(path, filename)
-    print "shiz: "+control_tar_archive
-    fh = BytesIO(control_tar_archive)
 
     if compression_type == 'xz':
-        with contextlib.closing(lzma.LZMAFile(fh)) as xz:
-            with tarfile.open(fileobj=xz) as fob:
-                try:
-                    return fob.extractfile("./control").read()
-                except KeyError:
-                    return tar.extractfile("control").read()
+        xz_str = lzma.decompress(control_tar_archive)
+        xz_bytes = BytesIO(xz_str)
+        tar = tarfile.open(mode="r:", fileobj=xz_bytes)
+        reload(sys)
+        sys.setdefaultencoding('utf8')
     else:
+        fh = BytesIO(control_tar_archive)
         tar = tarfile.open(filename, mode="r:"+compression_type, fileobj=fh)
-        try:
-            return tar.extractfile("./control").read()
-        except KeyError:
-            return tar.extractfile("control").read()
+
+    reload(sys)
+    sys.setdefaultencoding('utf8')
+
+    try:
+        return tar.extractfile("./control").read().encode('ascii', errors='replace')
+    except KeyError:
+        return tar.extractfile("control").read().encode('ascii', errors='replace')
 
 def get_key(path):
     """calculate the debinfo key for a Debian binary package at <path>"""
