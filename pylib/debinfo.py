@@ -11,14 +11,17 @@
 of control field data from Debian binary packages.  """
 
 import re
-import commands
+import subprocess
 import os
 from os.path import *
+import contextlib
 
+import sys
 import pwd
 import tarfile
 from hashlib import md5
-from cStringIO import StringIO
+from io import BytesIO
+import lzma
 
 import ar
 from hashstore import HashStore
@@ -38,17 +41,48 @@ def _init_debinfo_cache():
 _cache = _init_debinfo_cache()
 
 def _extract_control(path):
-    control_tar_gz = ar.extract(path, "control.tar.gz")
-    fh = StringIO(control_tar_gz)
-    tar = tarfile.open("control.tar.gz", mode="r:gz", fileobj=fh)
+    filenames = ar.list(path)
+    filename = None
+
+    for fn in filenames:
+        if fn.startswith('control.tar'):
+            filename = fn
+            break
+
+    if not filename:
+        raise Error("no 'control.tar.[gz|bz2|xz]' in archive")
+
+    _, compression_type = splitext(filename)
+    compression_type = compression_type[1:]
+        
+    control_tar_archive = ar.extract(path, filename)
+
+    if compression_type == 'xz':
+        xz_str = lzma.decompress(control_tar_archive)
+        xz_bytes = BytesIO(xz_str)
+        tar = tarfile.open(mode="r:", fileobj=xz_bytes)
+        reload(sys)
+        sys.setdefaultencoding('utf8')
+    else:
+        fh = BytesIO(control_tar_archive)
+        tar = tarfile.open(filename, mode="r:"+compression_type, fileobj=fh)
+
+    reload(sys)
+    sys.setdefaultencoding('utf8')
+
     try:
-        return tar.extractfile("./control").read()
+        return tar.extractfile("./control").read().encode('ascii', errors='replace')
     except KeyError:
-        return tar.extractfile("control").read()
+        return tar.extractfile("control").read().encode('ascii', errors='replace')
 
 def get_key(path):
     """calculate the debinfo key for a Debian binary package at <path>"""
-    return md5(ar.extract(path, "control.tar.gz")).hexdigest()
+    filename = None
+    for fn in ar.list(path):
+        if fn.startswith('control.tar'):
+            filename = fn
+            break
+    return md5(ar.extract(path, filename)).hexdigest()
 
 def get_control_by_key(key):
     """get control data from debinfo cache by <key> -> str"""
@@ -66,7 +100,7 @@ def get_control_by_path(path, usecache=True):
     key = get_key(path)
     control = _cache.get(key)
     if control is None:
-        control = _extract_control(path)
+        control = _extract_control(path).decode()
         _cache.set(key, control)
 
     return control
@@ -74,19 +108,23 @@ def get_control_by_path(path, usecache=True):
 def parse_control(control):
     """parse control fields -> dict"""
     d = {}
+    last_key = None
     for line in control.split("\n"):
         if not line or line[0] == " ":
             continue
         line = line.strip()
-        i = line.index(':')
-        key = line[:i]
-        val = line[i + 2:]
-        d[key] = val
-
+        if ':' in line:
+            i = line.index(':')
+            last_key = key = line[:i]
+            val = line[i + 2:]
+            d[key] = val
+        else:
+            key = last_key
+            val = line.strip()
+            d[key] = d[key].strip() + b' ' + val
     return d
 
 def get_control_fields(path):
     """convenience function which extracts control fields from a Debian binary package -> dict"""
     control = get_control_by_path(path)
     return parse_control(control)
-
