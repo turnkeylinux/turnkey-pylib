@@ -13,7 +13,6 @@ Standards-Version: 4.0.0
 Package: turnkey-pylib
 Architecture: any
 Depends:
- python-lzma,
  ${misc:Depends},
  ${python:Depends},
 Suggests:
